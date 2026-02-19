@@ -1,0 +1,49 @@
+name: Auto-merge Image Updater PRs (Reusable)
+
+# Auto-merges pull requests created by ArgoCD Image Updater.
+# Approves using AUTO_MERGE_PAT (or GITHUB_TOKEN fallback),
+# then enables auto-merge so it lands once status checks pass.
+
+on:
+  workflow_call:
+    inputs:
+      branch-prefix:
+        description: 'Branch prefix used by Image Updater PRs'
+        required: false
+        type: string
+        default: 'image-updater/'
+      merge-method:
+        description: 'Merge method: merge, squash, or rebase'
+        required: false
+        type: string
+        default: 'squash'
+    secrets:
+      AUTO_MERGE_PAT:
+        description: 'PAT for approving the PR (needs a different user from the PR author)'
+        required: false
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  auto-merge:
+    if: startsWith(github.head_ref, inputs.branch-prefix)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Approve PR
+        continue-on-error: true
+        env:
+          GH_TOKEN: ${{ secrets.AUTO_MERGE_PAT || secrets.GITHUB_TOKEN }}
+        run: gh pr review "${{ github.event.pull_request.number }}" --approve
+
+      - name: Enable auto-merge
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh pr merge "${{ github.event.pull_request.number }}" \
+            --auto \
+            --${{ inputs.merge-method }} \
+            --base main

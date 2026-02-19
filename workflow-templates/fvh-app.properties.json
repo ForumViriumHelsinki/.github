@@ -1,0 +1,7 @@
+{
+  "name": "FVH App CI/CD",
+  "description": "Container build, release-please, and security scan for a standard FVH application",
+  "iconName": "octicon rocket",
+  "categories": ["Continuous integration", "Deployment"],
+  "filePatterns": ["Dockerfile$", "docker-compose.yml$", "skaffold.yaml$"]
+}

@@ -1,0 +1,45 @@
+name: FVH App CI/CD
+
+on:
+  push:
+    branches: [main]
+    tags:
+      - '*-v*.*.*'
+  pull_request:
+    branches: [main]
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  # Build and push container image
+  build:
+    if: >
+      github.event_name == 'push' ||
+      startsWith(github.head_ref, 'release-please--branches--main')
+    uses: ForumViriumHelsinki/.github/.github/workflows/reusable-container-build.yml@main
+    with:
+      image-name: forumviriumhelsinki/${{ github.event.repository.name }}
+      push: ${{ github.event_name != 'pull_request' }}
+
+  # Automated releases via release-please
+  release:
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    uses: ForumViriumHelsinki/.github/.github/workflows/reusable-release-please.yml@main
+    secrets:
+      RELEASE_PLEASE_TOKEN: ${{ secrets.MY_RELEASE_PLEASE_TOKEN }}
+
+  # Auto-merge ArgoCD Image Updater PRs
+  auto-merge:
+    if: github.event_name == 'pull_request'
+    uses: ForumViriumHelsinki/.github/.github/workflows/reusable-auto-merge-image-updater.yml@main
+    secrets:
+      AUTO_MERGE_PAT: ${{ secrets.AUTO_MERGE_PAT }}
+
+  # Security scan on PRs
+  security:
+    if: github.event_name == 'pull_request'
+    uses: ForumViriumHelsinki/.github/.github/workflows/reusable-security-owasp.yml@main
+    secrets:
+      CLAUDE_CODE_OAUTH_TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
