@@ -13,18 +13,26 @@ concurrency:
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
-  # Build and push container image
+  # Build and push :next-{version} image on release-please PRs.
+  # The release job promotes this image instead of rebuilding on tag push.
   build:
-    if: >
-      github.event_name == 'push' ||
-      startsWith(github.head_ref, 'release-please--branches--main')
+    if: startsWith(github.head_ref, 'release-please--branches--main')
     uses: ForumViriumHelsinki/.github/.github/workflows/reusable-container-build.yml@main
     with:
       image-name: forumviriumhelsinki/${{ github.event.repository.name }}
-      push: ${{ github.event_name != 'pull_request' }}
+      # version-command: "jq -r '.version' package.json"  # default; adjust for Python etc.
+
+  # Promote the pre-built PR image to release tags on tag push.
+  # Falls back to a full rebuild if the pre-built image is not found.
+  release:
+    if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/')
+    uses: ForumViriumHelsinki/.github/.github/workflows/reusable-container-release.yml@main
+    with:
+      image-name: forumviriumhelsinki/${{ github.event.repository.name }}
+      tag-prefix: ${{ github.event.repository.name }}-v
 
   # Automated releases via release-please
-  release:
+  release-please:
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     uses: ForumViriumHelsinki/.github/.github/workflows/reusable-release-please.yml@main
     secrets:
