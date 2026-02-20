@@ -24,7 +24,8 @@ Call these from any FVH repo using `uses: ForumViriumHelsinki/.github/.github/wo
 
 | Workflow | Description |
 |----------|-------------|
-| `reusable-container-build.yml` | Build and push Docker image to GHCR with Trivy scan |
+| `reusable-container-build.yml` | PR phase: build and push `:next-{version}` pre-release image to GHCR |
+| `reusable-container-release.yml` | Release phase: promote pre-built image to semver tags (or fallback rebuild) + Trivy scan |
 | `reusable-release-please.yml` | Automated releases via release-please |
 | `reusable-auto-merge-image-updater.yml` | Auto-merge ArgoCD Image Updater PRs |
 | `reusable-renovate.yml` | Dependency updates via Renovate |
@@ -55,16 +56,37 @@ Call these from any FVH repo using `uses: ForumViriumHelsinki/.github/.github/wo
 
 ## Usage Example
 
+The container workflows use a **build-once/promote** pattern: images are built during the release-please PR and promoted (manifest-only retag) on tag push — no redundant rebuilds.
+
 ```yaml
-# In your repo's .github/workflows/ci.yml
+# In your repo's .github/workflows/container-build.yml
+name: Build and release container
+
+on:
+  push:
+    tags: ['my-app-v*.*.*']
+  pull_request:
+    branches: [main]
+
 jobs:
+  # PR phase: build :next-{version} image for later promotion
   build:
+    if: startsWith(github.head_ref, 'release-please--branches--main')
     uses: ForumViriumHelsinki/.github/.github/workflows/reusable-container-build.yml@main
     with:
       image-name: forumviriumhelsinki/my-app
-      push: ${{ github.event_name != 'pull_request' }}
 
+  # Release phase: promote pre-built image to semver tags (seconds, not minutes)
+  release:
+    if: github.event_name == 'push'
+    uses: ForumViriumHelsinki/.github/.github/workflows/reusable-container-release.yml@main
+    with:
+      image-name: forumviriumhelsinki/my-app
+      tag-prefix: my-app-v
+
+  # Security scan on PRs
   security:
+    if: github.event_name == 'pull_request'
     uses: ForumViriumHelsinki/.github/.github/workflows/reusable-security-owasp.yml@main
     secrets:
       CLAUDE_CODE_OAUTH_TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
