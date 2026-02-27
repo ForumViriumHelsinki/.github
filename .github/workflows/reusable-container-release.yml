@@ -51,6 +51,11 @@ on:
         required: false
         type: string
         default: 'CRITICAL,HIGH'
+      enable-signing:
+        description: 'Sign release images with cosign (keyless/Sigstore)'
+        required: false
+        type: boolean
+        default: true
     outputs:
       version:
         description: 'Released version'
@@ -61,6 +66,9 @@ on:
       promoted:
         description: 'true if promoted from pre-built image, false if rebuilt'
         value: ${{ jobs.release.outputs.promoted }}
+      signed:
+        description: 'true if signed with cosign'
+        value: ${{ jobs.release.outputs.signed }}
 
 permissions:
   contents: read
@@ -76,6 +84,7 @@ jobs:
       version: ${{ steps.meta.outputs.version }}
       tags: ${{ steps.meta.outputs.tags }}
       promoted: ${{ steps.pr-image.outputs.exists }}
+      signed: ${{ steps.cosign-sign.outputs.signed }}
     steps:
       - name: Checkout repository
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
@@ -166,6 +175,29 @@ jobs:
           provenance: mode=max
           sbom: true
 
+      # ---- Container signing (keyless / Sigstore) -----------------------------
+      - name: Install cosign
+        if: inputs.enable-signing
+        uses: sigstore/cosign-installer@faadad0cce49287aee09b3a48701e75088a2c6ad # v4.0.0
+
+      - name: Capture release image digest
+        if: inputs.enable-signing
+        id: release-digest
+        run: |
+          FIRST_TAG=$(echo '${{ steps.meta.outputs.tags }}' | head -n1)
+          DIGEST=$(docker buildx imagetools inspect "${FIRST_TAG}" --format '{{.Manifest.Digest}}')
+          echo "digest=${DIGEST}" >> $GITHUB_OUTPUT
+          echo "image=ghcr.io/${{ inputs.image-name }}@${DIGEST}" >> $GITHUB_OUTPUT
+
+      - name: Sign release image with cosign (keyless)
+        if: inputs.enable-signing
+        id: cosign-sign
+        env:
+          COSIGN_YES: "true"
+        run: |
+          cosign sign "${{ steps.release-digest.outputs.image }}"
+          echo "signed=true" >> $GITHUB_OUTPUT
+
       - name: Run Trivy vulnerability scanner
         uses: aquasecurity/trivy-action@c1824fd6edce30d7ab345a9989de00bbd46ef284 # 0.34.0
         with:
@@ -185,13 +217,30 @@ jobs:
         if: always()
         run: |
           PROMOTED="${{ steps.pr-image.outputs.exists }}"
+          SIGNED="${{ steps.cosign-sign.outputs.signed }}"
+          DIGEST="${{ steps.release-digest.outputs.digest }}"
           echo "## Container Release: \`${{ inputs.image-name }}\`" >> $GITHUB_STEP_SUMMARY
           echo "- **Version**: \`${{ steps.meta.outputs.version }}\`" >> $GITHUB_STEP_SUMMARY
           if [ "$PROMOTED" = "true" ]; then
-            echo "- **Method**: ✅ Promoted from pre-built PR image (fast path — no rebuild)" >> $GITHUB_STEP_SUMMARY
+            echo "- **Method**: Promoted from pre-built PR image (fast path)" >> $GITHUB_STEP_SUMMARY
             echo "- **Source**: \`${{ steps.version.outputs.next_image }}\`" >> $GITHUB_STEP_SUMMARY
           else
-            echo "- **Method**: 🔨 Full rebuild (fallback — pre-built image not found)" >> $GITHUB_STEP_SUMMARY
+            echo "- **Method**: Full rebuild (fallback)" >> $GITHUB_STEP_SUMMARY
+          fi
+          if [ "$SIGNED" = "true" ]; then
+            echo "- **Signing**: Signed with cosign (keyless/Sigstore)" >> $GITHUB_STEP_SUMMARY
+            echo "- **Digest**: \`${DIGEST}\`" >> $GITHUB_STEP_SUMMARY
+            echo "- **Rekor**: [transparency log](https://search.sigstore.dev/?hash=${DIGEST})" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "<details><summary>Verify signature</summary>" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo '```bash' >> $GITHUB_STEP_SUMMARY
+            echo "cosign verify \\" >> $GITHUB_STEP_SUMMARY
+            echo "  --certificate-oidc-issuer=https://token.actions.githubusercontent.com \\" >> $GITHUB_STEP_SUMMARY
+            echo "  --certificate-identity-regexp='https://github.com/ForumViriumHelsinki/' \\" >> $GITHUB_STEP_SUMMARY
+            echo "  ghcr.io/${{ inputs.image-name }}@${DIGEST}" >> $GITHUB_STEP_SUMMARY
+            echo '```' >> $GITHUB_STEP_SUMMARY
+            echo "</details>" >> $GITHUB_STEP_SUMMARY
           fi
           echo "- **Tags**:" >> $GITHUB_STEP_SUMMARY
           echo '${{ steps.meta.outputs.tags }}' | while read -r tag; do
