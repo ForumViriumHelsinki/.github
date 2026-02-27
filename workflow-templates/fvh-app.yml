@@ -2,7 +2,7 @@ name: FVH App CI/CD
 
 on:
   push:
-    branches: [main]
+    branches: [main, 'image-updater-**']
     tags:
       - '*-v*.*.*'
   pull_request:
@@ -38,10 +38,14 @@ jobs:
     secrets:
       RELEASE_PLEASE_TOKEN: ${{ secrets.MY_RELEASE_PLEASE_TOKEN }}
 
-  # Auto-merge ArgoCD Image Updater PRs
+  # Auto-merge ArgoCD Image Updater PRs.
+  # Single-job design: creates PR, approves, and enables auto-merge in one run
+  # to avoid GITHUB_TOKEN anti-recursion (GITHUB_TOKEN PRs don't fire pull_request events).
   auto-merge:
-    if: github.event_name == 'pull_request'
+    if: startsWith(github.ref_name, 'image-updater-')
     uses: ForumViriumHelsinki/.github/.github/workflows/reusable-auto-merge-image-updater.yml@main
+    with:
+      pr-title: "build: automatic update of ${{ github.event.repository.name }}"
     secrets:
       AUTO_MERGE_PAT: ${{ secrets.AUTO_MERGE_PAT }}
 

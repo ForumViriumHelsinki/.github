@@ -27,7 +27,8 @@ Call these from any FVH repo using `uses: ForumViriumHelsinki/.github/.github/wo
 | `reusable-container-build.yml` | PR phase: build and push `:next-{version}` pre-release image to GHCR |
 | `reusable-container-release.yml` | Release phase: promote pre-built image to semver tags (or fallback rebuild) + Trivy scan |
 | `reusable-release-please.yml` | Automated releases via release-please |
-| `reusable-auto-merge-image-updater.yml` | Auto-merge ArgoCD Image Updater PRs |
+| `reusable-auto-merge-image-updater.yml` | Auto-merge ArgoCD Image Updater PRs (single-job, push-triggered) |
+| `reusable-fix-release-conflicts.yml` | Auto-resolve release-please merge conflicts |
 | `reusable-renovate.yml` | Dependency updates via Renovate |
 | `reusable-claude.yml` | Claude Code @-mention support in issues and PRs |
 
@@ -90,6 +91,31 @@ jobs:
     uses: ForumViriumHelsinki/.github/.github/workflows/reusable-security-owasp.yml@main
     secrets:
       CLAUDE_CODE_OAUTH_TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+```
+
+## Container Signing
+
+Release images are signed with [Sigstore cosign](https://docs.sigstore.dev/) using keyless mode (OIDC identity from GitHub Actions). Signatures are recorded in the [Rekor](https://docs.sigstore.dev/logging/overview/) public transparency log.
+
+### Verifying signatures
+
+```bash
+cosign verify \
+  --certificate-oidc-issuer=https://token.actions.githubusercontent.com \
+  --certificate-identity-regexp='https://github.com/ForumViriumHelsinki/' \
+  ghcr.io/forumviriumhelsinki/my-app:1.2.3
+```
+
+### Opting out
+
+Pass `enable-signing: false` to the release workflow:
+
+```yaml
+uses: ForumViriumHelsinki/.github/.github/workflows/reusable-container-release.yml@main
+with:
+  image-name: forumviriumhelsinki/my-app
+  tag-prefix: my-app-v
+  enable-signing: false
 ```
 
 ## Community Health Files
