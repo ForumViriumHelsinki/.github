@@ -14,7 +14,7 @@ on:
         type: string
         default: '.release-please-manifest.json'
     secrets:
-      RELEASE_PLEASE_TOKEN:
+      MY_RELEASE_PLEASE_TOKEN:
         description: 'PAT with contents:write and pull-requests:write scopes'
         required: true
     outputs:
@@ -44,6 +44,6 @@ jobs:
       - uses: googleapis/release-please-action@v4.4.0
         id: release
         with:
-          token: ${{ secrets.RELEASE_PLEASE_TOKEN }}
+          token: ${{ secrets.MY_RELEASE_PLEASE_TOKEN }}
           config-file: ${{ inputs.config-file }}
           manifest-file: ${{ inputs.manifest-file }}
