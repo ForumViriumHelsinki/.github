@@ -1,0 +1,6 @@
+{
+  "name": "Claude Code Review",
+  "description": "Automated PR review using Claude Code for code quality, bugs, security, and test coverage",
+  "iconName": "octicon code-review",
+  "categories": ["Continuous integration", "Code review"]
+}

@@ -1,0 +1,6 @@
+{
+  "name": "Enforce Conventional Commits",
+  "description": "Auto-fixes PR titles to follow the conventional commits specification",
+  "iconName": "octicon git-commit",
+  "categories": ["Continuous integration"]
+}
