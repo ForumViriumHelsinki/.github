@@ -1,0 +1,38 @@
+name: Auto-fix Workflow Failures
+
+on:
+  workflow_run:
+    workflows:
+      # List the workflows that should trigger auto-fix on failure
+      - "FVH App CI/CD"
+    types: [completed]
+
+# Prevent concurrent auto-fix runs on the same branch
+concurrency:
+  group: auto-fix-${{ github.event.workflow_run.head_branch }}
+  cancel-in-progress: false
+
+jobs:
+  auto-fix:
+    # Only run on failures, skip main/master, allow Claude bot, skip auto-fix commits (loop prevention)
+    if: >-
+      github.event.workflow_run.conclusion == 'failure' &&
+      !startsWith(github.event.workflow_run.head_commit.message, 'fix(auto):') &&
+      (github.event.workflow_run.actor.type != 'Bot' ||
+       github.event.workflow_run.actor.login == 'claude[bot]' ||
+       github.event.workflow_run.actor.login == 'claude') &&
+      github.event.workflow_run.head_branch != 'main' &&
+      github.event.workflow_run.head_branch != 'master'
+    uses: ForumViriumHelsinki/.github/.github/workflows/reusable-auto-fix.yml@main
+    with:
+      branch: ${{ github.event.workflow_run.head_branch }}
+      run_id: ${{ github.event.workflow_run.id }}
+      workflow_name: ${{ github.event.workflow_run.name }}
+      head_sha: ${{ github.event.workflow_run.head_sha }}
+      # Uncomment and customize for repo-specific auto-fixable patterns:
+      # auto_fixable_description: |
+      #   - Linting errors (formatting, style violations)
+      #   - Type errors with obvious fixes
+    secrets:
+      CLAUDE_CODE_OAUTH_TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+      # PAT_TOKEN: ${{ secrets.MY_RELEASE_PLEASE_TOKEN }}
