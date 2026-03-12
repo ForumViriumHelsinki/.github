@@ -1,0 +1,15 @@
+name: Enforce Conventional Commits
+
+on:
+  pull_request:
+    types:
+      - opened
+      - edited
+      - synchronize
+
+jobs:
+  conventional-commits:
+    uses: ForumViriumHelsinki/.github/.github/workflows/reusable-enforce-conventional-commits.yml@main
+    # Uncomment to add custom type aliases:
+    # with:
+    #   extra_type_aliases: '{"deploy": "ci", "infra": "chore"}'
