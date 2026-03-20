@@ -1,0 +1,83 @@
+---
+paths:
+  - '**/Dockerfile'
+  - '**/deploy/**'
+  - '**/skaffold.yaml'
+---
+# Application Repository Structure
+
+## Rule: Every deployed FVH application follows a standard file layout
+
+Application repos must include the files below for consistent deployment, automation, and local development.
+
+## Required Files
+
+| File | Purpose |
+|------|---------|
+| `deploy/values.yaml` | Helm values for production deployment via `helm-webapp` chart |
+| `Dockerfile` | Container image definition |
+| `.github/workflows/` | CI/CD pipelines calling org reusable workflows |
+| `skaffold.yaml` | Local Kubernetes development configuration |
+| `.pre-commit-config.yaml` | Code quality hooks (conventional commits, linting, secrets detection) |
+| `release-please-config.json` | Release automation configuration |
+| `.release-please-manifest.json` | Current version tracking |
+| `justfile` | Developer task runner with standard recipe groups |
+| `CLAUDE.md` | Project-specific Claude Code guidance |
+
+## Optional Files
+
+| File | Purpose |
+|------|---------|
+| `k8s/` | Local development K8s manifests (databases, mocked services) |
+| `renovate.json` | Renovate config (workflow runs centrally from infrastructure repo) |
+
+## Dockerfile Requirements
+
+### Kyverno Security Policy Compliance
+
+All containers deployed to FVH's GKE Autopilot cluster must pass Kyverno policy validation:
+
+- `runAsNonRoot: true` — Dockerfile must create and switch to a non-root user
+- `readOnlyRootFilesystem: true` — writable directories use `emptyDir` volumes in Helm values
+- `allowPrivilegeEscalation: false` — set in `securityContext` in Helm values
+- `capabilities.drop: [ALL]` — set in `securityContext` in Helm values
+
+### Frontend Archetype (Node/Bun build -> nginx)
+
+```dockerfile
+FROM node:22-alpine AS builder
+WORKDIR /app
+COPY package*.json ./
+RUN npm ci
+COPY . .
+RUN npm run build
+
+FROM nginx:alpine
+RUN adduser -D -H appuser && chown -R appuser:appuser /var/cache/nginx /var/run
+COPY --from=builder /app/dist /usr/share/nginx/html
+COPY nginx.conf /etc/nginx/conf.d/default.conf
+USER appuser
+EXPOSE 8080
+```
+
+### Backend Archetype (Python/Node runtime)
+
+```dockerfile
+FROM python:3.12-slim
+WORKDIR /app
+RUN adduser --system --no-create-home appuser
+COPY requirements.txt .
+RUN pip install --no-cache-dir -r requirements.txt
+COPY . .
+USER appuser
+EXPOSE 8000
+CMD ["gunicorn", "app:app", "--bind", "0.0.0.0:8000"]
+```
+
+## Container Image Naming
+
+Images are published to GHCR: `ghcr.io/forumviriumhelsinki/{repo-name}` (lowercase).
+
+## Full Onboarding Checklist
+
+For infrastructure-side setup (IAM, AppProject, ArgoCD manifest), see `@infrastructure/.claude/rules/application-onboarding.md`.

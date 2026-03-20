@@ -1,0 +1,6 @@
+{
+  "name": "Sync AI Rules",
+  "description": "Sync organization AI coding rules from .github repo via rulesync",
+  "iconName": "octicon sync",
+  "categories": ["Automation"]
+}

@@ -1,0 +1,65 @@
+---
+description: >-
+  Dependency automation — ArgoCD Image Updater, Renovate, release-please
+  ownership
+applyTo: >-
+  **/renovate.json,**/.release-please-manifest.json,**/release-please-config.json,**/deploy/values.yaml
+---
+# Dependency Automation
+
+## Rule: Three automation tools manage dependencies — do not manually update what they own
+
+| Tool | Manages | Do Not Manually Edit |
+|------|---------|---------------------|
+| **ArgoCD Image Updater** | `image.tag` in `deploy/values.yaml` | Image tags |
+| **Renovate** | Dependency versions (runs from infrastructure repo only) | Dependency PRs |
+| **release-please** | `CHANGELOG.md`, version fields, release tags | Changelog, versions |
+
+## ArgoCD Image Updater
+
+Automates container image deployments:
+
+1. GitHub Actions builds and pushes image to GHCR on merge to `main`
+2. Image Updater detects new tag matching configured pattern
+3. Image Updater commits to `deploy/values.yaml` on `image-updater-**` branch
+4. Auto-merge workflow merges the branch
+5. ArgoCD syncs the updated values
+
+**Never manually edit `image.tag` in `deploy/values.yaml`.**
+
+## Renovate
+
+Renovate runs **from the infrastructure repo only**. Do NOT add Renovate workflow files to application repos — per-repo workflows are a billing antipattern (1,000+ wasted minutes/month across the org).
+
+Application repos may have a `renovate.json` for configuration (e.g., custom grouping, automerge rules), but the workflow that triggers Renovate lives in the infrastructure repo.
+
+## release-please
+
+Driven by conventional commits on the `main` branch:
+
+- Creates release PRs automatically when unreleased changes exist
+- Manages `CHANGELOG.md` and version fields in `package.json` / `pyproject.toml` / `Chart.yaml`
+- Creates GitHub releases with semver tags on PR merge
+
+**Do not manually edit:**
+- `CHANGELOG.md`
+- Version fields in `package.json`, `pyproject.toml`, or `Cargo.toml`
+- `.release-please-manifest.json`
+
+## End-to-End Deployment Flow
+
+```
+commit → merge to main
+  → release-please PR created
+  → merge release PR
+  → GitHub release + semver tag
+  → container-release workflow builds/promotes image
+  → Image Updater detects new tag
+  → commits image.tag update to deploy/values.yaml
+  → auto-merge workflow merges
+  → ArgoCD syncs → deployed
+```
+
+## References
+
+- Full dependency management details: `@infrastructure/.claude/rules/dependency-management.md`

@@ -15,6 +15,8 @@ This is the ForumViriumHelsinki `.github` special repository — the org-wide hu
 - `.github/PULL_REQUEST_TEMPLATE.md` — org-default PR template
 - `workflow-templates/` — starter workflows shown in the GitHub Actions "New workflow" UI (each has a `.yml` + `.properties.json` pair)
 - `profile/README.md` — org profile displayed on github.com/ForumViriumHelsinki
+- `.rulesync/rules/*.md` — canonical AI coding rules for all FVH application repos (source of truth)
+- `rulesync.jsonc` — rulesync configuration for generating tool-specific files
 - Root community health files (`CODE_OF_CONDUCT.md`, `CONTRIBUTING.md`, `SECURITY.md`, `SUPPORT.md`)
 
 ### Workflow Categories
@@ -59,6 +61,24 @@ Release images are signed with cosign keyless (Sigstore OIDC) and scanned with T
 - **Workflow naming**: `reusable-{category}-{name}.yml` for reusable workflows; category prefixes group related workflows
 - **Workflow templates**: Each template in `workflow-templates/` needs both a `.yml` file and a matching `.properties.json` with name, description, iconName, and categories
 - Community health files at repo root serve as org-wide defaults; individual repos override by providing their own copy
+
+### Shared AI Coding Rules
+
+Organization-wide coding rules for AI assistants are maintained in `.rulesync/rules/`. These are the canonical source — `rulesync generate` produces tool-specific files for Claude Code (`.claude/rules/`), Gemini CLI (`GEMINI.md`), GitHub Copilot (`.github/copilot-instructions.md`), and Cursor (`.cursor/rules/`).
+
+Application repos pull these rules via the `reusable-sync-ai-rules.yml` workflow, which uses `rulesync fetch` + `rulesync generate` and creates a PR with updates.
+
+To regenerate locally after editing rules:
+
+```bash
+npx rulesync@latest generate
+```
+
+To validate generated files are in sync (CI):
+
+```bash
+npx rulesync@latest generate --check
+```
 
 ## Testing Workflows
 
