@@ -64,7 +64,7 @@ Release images are signed with cosign keyless (Sigstore OIDC) and scanned with T
 
 ### Shared AI Coding Rules
 
-Organization-wide coding rules for AI assistants are maintained in `.rulesync/rules/`. These are the canonical source — `rulesync generate` produces tool-specific files for Claude Code (`.claude/rules/`), Gemini CLI (`GEMINI.md`), GitHub Copilot (`.github/copilot-instructions.md`), and Cursor (`.cursor/rules/`).
+Organization-wide coding rules for AI assistants are maintained in `.rulesync/rules/`. These are the canonical source — `rulesync generate` produces tool-specific files for Claude Code (`.claude/rules/`), Gemini CLI (`.gemini/memories/`), GitHub Copilot (`.github/instructions/`), and Cursor (`.cursor/rules/`).
 
 Application repos pull these rules via the `reusable-sync-ai-rules.yml` workflow, which uses `rulesync fetch` + `rulesync generate` and creates a PR with updates.
 
