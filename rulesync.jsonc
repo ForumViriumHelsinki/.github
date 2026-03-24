@@ -1,0 +1,7 @@
+{
+  "$schema": "https://github.com/dyoshikawa/rulesync/releases/latest/download/config-schema.json",
+  "targets": ["claudecode", "copilot", "geminicli", "cursor"],
+  "features": ["rules", "ignore"],
+  "baseDirs": ["."],
+  "delete": false
+}

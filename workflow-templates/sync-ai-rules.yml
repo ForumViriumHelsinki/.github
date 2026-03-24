@@ -1,0 +1,10 @@
+name: Sync AI Rules
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "0 6 * * 1" # Weekly Monday 6am UTC
+
+jobs:
+  sync:
+    uses: ForumViriumHelsinki/.github/.github/workflows/reusable-sync-ai-rules.yml@main

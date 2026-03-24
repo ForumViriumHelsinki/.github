@@ -10,6 +10,11 @@ on:
         description: 'Runner label for the job'
         type: string
         default: 'ubuntu-slim'
+      claude_args:
+        description: 'Additional arguments for Claude Code'
+        type: string
+        required: false
+        default: '--max-turns 30'
     secrets:
       CLAUDE_CODE_OAUTH_TOKEN:
         required: true
@@ -40,11 +45,12 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v6
         with:
-          fetch-depth: 1
+          fetch-depth: 0
 
       - name: Run Claude Code
         uses: anthropics/claude-code-action@v1
         with:
           claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          claude_args: ${{ inputs.claude_args }}
           additional_permissions: |
             actions: read
