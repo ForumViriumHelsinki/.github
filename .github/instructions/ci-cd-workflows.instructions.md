@@ -34,7 +34,7 @@ uses: ForumViriumHelsinki/.github/.github/workflows/<name>.yml@main
 |-------|------|---------|-------------|
 | `runner` | string | `ubuntu-slim` | Runner label |
 | `max_turns` | number | `30` | Maximum agentic turns before stopping |
-| `claude_args` | string | `''` | Additional CLI arguments (appended after built-in `--max-turns` and `--system-prompt`) |
+| `claude_args` | string | `''` | Additional CLI arguments. These are appended after built-in arguments. Avoid passing arguments like `--max-turns` that are handled by dedicated inputs to prevent conflicts. |
 
 Example — increase turns for a large codebase:
 
