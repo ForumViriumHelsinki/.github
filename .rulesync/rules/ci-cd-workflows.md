@@ -28,6 +28,37 @@ uses: ForumViriumHelsinki/.github/.github/workflows/<name>.yml@main
 | `auto-merge-image-updater.yml` | `reusable-auto-merge-image-updater.yml` | `image-updater-**` branches | `AUTO_MERGE_PAT` |
 | `claude.yml` | `reusable-claude.yml` | Issue/PR @-mentions | `CLAUDE_CODE_OAUTH_TOKEN` |
 
+### Claude Workflow Inputs
+
+`reusable-claude.yml` accepts these inputs for per-repo customization:
+
+| Input | Type | Default | Description |
+|-------|------|---------|-------------|
+| `runner` | string | `ubuntu-slim` | Runner label |
+| `max_turns` | number | `30` | Maximum agentic turns before stopping |
+| `claude_args` | string | `''` | Additional CLI arguments (appended after built-in `--max-turns` and `--system-prompt`) |
+
+Example — increase turns for a large codebase:
+
+```yaml
+uses: ForumViriumHelsinki/.github/.github/workflows/reusable-claude.yml@main
+with:
+  max_turns: 50
+secrets:
+  CLAUDE_CODE_OAUTH_TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+```
+
+### Max-Turns Handoff
+
+When Claude exhausts its turn budget, the workflow posts a continuation comment instead of failing silently:
+
+1. Detects `error_max_turns` from the execution output
+2. Posts a comment with progress summary, branch name (if partial work was pushed), and a continuation prompt
+3. User replies "Continue where you left off @claude" to trigger a new run with full conversation context
+4. The bot filter (`sender.type != 'Bot'`) prevents infinite loops
+
+The workflow also injects a `--system-prompt` instructing Claude to commit and push partial progress early for multi-step tasks.
+
 ### Optional Workflows (Claude-Powered)
 
 | Caller Workflow | Reusable Workflow | Purpose |
