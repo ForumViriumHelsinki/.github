@@ -1,0 +1,6 @@
+{
+  "name": "Claude Code",
+  "description": "Enable Claude Code @-mention support in issues and PRs",
+  "iconName": "octicon ai-model",
+  "categories": ["Automation"]
+}
