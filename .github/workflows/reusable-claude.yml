@@ -19,7 +19,7 @@ on:
         description: 'Maximum number of agentic turns'
         type: number
         required: false
-        default: 30
+        default: 50
     secrets:
       CLAUDE_CODE_OAUTH_TOKEN:
         required: true
@@ -60,7 +60,14 @@ jobs:
           claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
           claude_args: >-
             --max-turns ${{ inputs.max_turns }}
-            --system-prompt "You have a limited turn budget in CI. For multi-step tasks: commit and push partial progress early — do not wait until everything is done. After each push, update your comment with completed and remaining work. Prioritize working increments over completing everything at once."
+            --system-prompt "You have a limited turn budget of ${{ inputs.max_turns }} turns in CI.
+
+            Strategy:
+            1. ACT FIRST — produce visible output early. Do not spend many turns reading files before posting results.
+            2. For CODE CHANGES: commit and push partial progress early. Do not wait until everything is done.
+            3. For ANALYSIS/REVIEW tasks: post your findings incrementally. Use a checklist in your comment so partial progress is visible even if you run out of turns.
+            4. After each milestone, update your comment with completed and remaining work.
+            5. If you realize the task will exceed your budget, summarize what is done and what remains so a continuation can pick up where you left off."
             ${{ inputs.claude_args }}
           additional_permissions: |
             actions: read
@@ -69,11 +76,27 @@ jobs:
         id: failure-type
         if: steps.claude.outcome == 'failure'
         run: |
-          if [[ -f "${{ steps.claude.outputs.execution_file }}" ]] && grep -q "error_max_turns" "${{ steps.claude.outputs.execution_file }}"; then
-            echo "type=max-turns" >> "$GITHUB_OUTPUT"
+          EXEC_FILE="${{ steps.claude.outputs.execution_file }}"
+          if [[ -f "$EXEC_FILE" ]]; then
+            SUBTYPE=$(jq -r '[.[] | select(.type == "result")] | last | .subtype // "unknown"' "$EXEC_FILE" 2>/dev/null || echo "unknown")
+            NUM_TURNS=$(jq -r '[.[] | select(.type == "result")] | last | .num_turns // 0' "$EXEC_FILE" 2>/dev/null || echo "0")
+            ERRORS=$(jq -r '[.[] | select(.type == "result")] | last | [.errors // [] | .[]] | join("; ")' "$EXEC_FILE" 2>/dev/null || echo "")
           else
-            echo "type=error" >> "$GITHUB_OUTPUT"
+            SUBTYPE="no-execution-file"
+            NUM_TURNS="0"
+            ERRORS="Execution file not found"
           fi
+
+          echo "subtype=${SUBTYPE}" >> "$GITHUB_OUTPUT"
+          echo "num_turns=${NUM_TURNS}" >> "$GITHUB_OUTPUT"
+          echo "errors=${ERRORS}" >> "$GITHUB_OUTPUT"
+
+          case "$SUBTYPE" in
+            error_max_turns)        echo "type=max-turns" >> "$GITHUB_OUTPUT" ;;
+            error_during_execution) echo "type=execution-error" >> "$GITHUB_OUTPUT" ;;
+            error_max_budget_usd)   echo "type=budget-exceeded" >> "$GITHUB_OUTPUT" ;;
+            *)                      echo "type=error" >> "$GITHUB_OUTPUT" ;;
+          esac
 
       - name: Post continuation comment on failure
         if: steps.claude.outcome == 'failure'
@@ -84,20 +107,49 @@ jobs:
             if (!issueNumber) return;
 
             const failureType = '${{ steps.failure-type.outputs.type }}';
+            const numTurns = '${{ steps.failure-type.outputs.num_turns }}';
+            const errors = '${{ steps.failure-type.outputs.errors }}';
             const branchName = '${{ steps.claude.outputs.branch_name }}';
+            const sessionId = '${{ steps.claude.outputs.session_id }}';
             const runUrl = `${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`;
 
             const lines = [];
 
-            if (failureType === 'max-turns') {
-              lines.push(
-                '⚠️ **Claude ran out of turns before completing the task.**',
-                '',
-                'Progress so far is captured in the comment above.',
-              );
-              if (branchName) {
-                lines.push('', `Partial work was pushed to branch \`${branchName}\`.`);
-              }
+            switch (failureType) {
+              case 'max-turns':
+                lines.push(
+                  `⚠️ **Claude ran out of turns** (used ${numTurns} turns).`,
+                  '',
+                  'Progress so far is captured in the comment above.',
+                );
+                break;
+              case 'execution-error':
+                lines.push(
+                  `❌ **Claude encountered an error during execution** (after ${numTurns} turns).`,
+                  '',
+                );
+                if (errors) {
+                  lines.push(`Error: \`${errors}\``, '');
+                }
+                lines.push('Progress so far may be captured in the comment above.');
+                break;
+              case 'budget-exceeded':
+                lines.push(`❌ **Claude exceeded its budget** (${numTurns} turns).`);
+                break;
+              default:
+                lines.push('❌ **Claude encountered an error.**');
+                if (errors) {
+                  lines.push('', `Error: \`${errors}\``);
+                }
+                break;
+            }
+
+            if (branchName) {
+              lines.push('', `Partial work was pushed to branch \`${branchName}\`.`);
+            }
+
+            // Show continuation instructions for recoverable failures
+            if (['max-turns', 'execution-error'].includes(failureType)) {
               lines.push(
                 '',
                 'To continue, reply with:',
@@ -105,11 +157,12 @@ jobs:
                 'Continue where you left off @claude',
                 '```',
               );
-            } else {
-              lines.push('❌ **Claude encountered an error.**');
             }
 
             lines.push('', `[View workflow run](${runUrl})`);
+            if (sessionId) {
+              lines.push(`<sub>Session: \`${sessionId}\`</sub>`);
+            }
 
             await github.rest.issues.createComment({
               owner: context.repo.owner,
