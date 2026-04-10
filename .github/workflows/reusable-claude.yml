@@ -11,7 +11,7 @@ on:
         type: string
         default: 'ubuntu-slim'
       claude_args:
-        description: 'Additional arguments for Claude Code (appended after default --max-turns and --system-prompt)'
+        description: 'Additional arguments for Claude Code (appended after default --max-turns, --allowedTools, and --system-prompt)'
         type: string
         required: false
         default: ''
@@ -20,6 +20,15 @@ on:
         type: number
         required: false
         default: 50
+      allowed_tools:
+        description: >-
+          Comma-separated list of additional tools to allow beyond the action defaults
+          (Glob, Grep, LS, Read, git commit/push). Passed to --allowedTools.
+          Default covers FVH stack: file editing, Python (uv/pytest/ruff),
+          TypeScript (bun/biome), just task runner, and pre-commit hooks.
+        type: string
+        required: false
+        default: 'Edit,Write,Bash(uv *),Bash(pytest *),Bash(python *),Bash(ruff *),Bash(bun *),Bash(biome *),Bash(node *),Bash(just *),Bash(pre-commit *),Bash(make *)'
     secrets:
       CLAUDE_CODE_OAUTH_TOKEN:
         required: true
@@ -60,6 +69,7 @@ jobs:
           claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
           claude_args: >-
             --max-turns ${{ inputs.max_turns }}
+            --allowedTools "${{ inputs.allowed_tools }}"
             --system-prompt "You have a limited turn budget of ${{ inputs.max_turns }} turns in CI.
 
             Strategy:
