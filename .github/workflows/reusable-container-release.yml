@@ -184,7 +184,16 @@ jobs:
         id: release-digest
         run: |
           FIRST_TAG=$(echo '${{ steps.meta.outputs.tags }}' | head -n1)
-          DIGEST=$(docker buildx imagetools inspect "${FIRST_TAG}" --format '{{.Manifest.Digest}}')
+          # Extract the top-level digest from imagetools inspect text output.
+          # --format '{{.Manifest.Digest}}' fails for OCI index/manifest list
+          # types (no .Digest field), producing multi-line output that breaks
+          # $GITHUB_OUTPUT parsing. The text output has a top-level
+          # "Digest: sha256:..." line (unindented, unlike sub-manifest lines).
+          DIGEST=$(docker buildx imagetools inspect "${FIRST_TAG}" | grep -m1 '^Digest:' | awk '{print $2}')
+          if [ -z "${DIGEST}" ]; then
+            echo "::error::Failed to extract digest from imagetools inspect output"
+            exit 1
+          fi
           echo "digest=${DIGEST}" >> $GITHUB_OUTPUT
           echo "image=ghcr.io/${{ inputs.image-name }}@${DIGEST}" >> $GITHUB_OUTPUT
 
