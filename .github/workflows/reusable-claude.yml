@@ -87,26 +87,39 @@ jobs:
         if: steps.claude.outcome == 'failure'
         run: |
           EXEC_FILE="${{ steps.claude.outputs.execution_file }}"
+          STRUCTURED_OUTPUT='${{ steps.claude.outputs.structured_output }}'
+          SUBTYPE="unknown"
+          NUM_TURNS="0"
+          ERRORS=""
           if [[ -f "$EXEC_FILE" ]]; then
             SUBTYPE=$(jq -r '[.[] | select(.type == "result")] | last | .subtype // "unknown"' "$EXEC_FILE" 2>/dev/null || echo "unknown")
             NUM_TURNS=$(jq -r '[.[] | select(.type == "result")] | last | .num_turns // 0' "$EXEC_FILE" 2>/dev/null || echo "0")
             ERRORS=$(jq -r '[.[] | select(.type == "result")] | last | [.errors // [] | .[]] | join("; ")' "$EXEC_FILE" 2>/dev/null || echo "")
+          elif [[ -n "$STRUCTURED_OUTPUT" ]]; then
+            # Fall back to the action's structured_output when the exec file was
+            # never written (e.g. SDK crash after error_max_turns — see issue #36).
+            SUBTYPE=$(jq -r '.subtype // .conclusion // "no-execution-file"' <<<"$STRUCTURED_OUTPUT" 2>/dev/null || echo "no-execution-file")
+            NUM_TURNS=$(jq -r '.num_turns // 0' <<<"$STRUCTURED_OUTPUT" 2>/dev/null || echo "0")
           else
+            # Leave ERRORS empty — the follow-up comment links to the workflow
+            # logs where the real error is visible, rather than rendering a
+            # misleading "Error: Execution file not found" (see issue #36).
             SUBTYPE="no-execution-file"
-            NUM_TURNS="0"
-            ERRORS="Execution file not found"
           fi
 
-          echo "subtype=${SUBTYPE}" >> "$GITHUB_OUTPUT"
-          echo "num_turns=${NUM_TURNS}" >> "$GITHUB_OUTPUT"
-          echo "errors=${ERRORS}" >> "$GITHUB_OUTPUT"
+          {
+            echo "subtype=${SUBTYPE}"
+            echo "num_turns=${NUM_TURNS}"
+            echo "errors=${ERRORS}"
+          } >> "$GITHUB_OUTPUT"
 
           case "$SUBTYPE" in
-            error_max_turns)        echo "type=max-turns" >> "$GITHUB_OUTPUT" ;;
-            error_during_execution) echo "type=execution-error" >> "$GITHUB_OUTPUT" ;;
-            error_max_budget_usd)   echo "type=budget-exceeded" >> "$GITHUB_OUTPUT" ;;
-            *)                      echo "type=error" >> "$GITHUB_OUTPUT" ;;
+            error_max_turns)        TYPE="max-turns" ;;
+            error_during_execution) TYPE="execution-error" ;;
+            error_max_budget_usd)   TYPE="budget-exceeded" ;;
+            *)                      TYPE="error" ;;
           esac
+          echo "type=${TYPE}" >> "$GITHUB_OUTPUT"
 
       - name: Post continuation comment on failure
         if: steps.claude.outcome == 'failure'
@@ -150,6 +163,11 @@ jobs:
                 lines.push('❌ **Claude encountered an error.**');
                 if (errors) {
                   lines.push('', `Error: \`${errors}\``);
+                } else {
+                  lines.push(
+                    '',
+                    `No execution summary was produced. See the [workflow logs](${runUrl}) for the underlying error.`,
+                  );
                 }
                 break;
             }
