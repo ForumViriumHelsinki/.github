@@ -56,6 +56,14 @@ on:
         required: false
         type: boolean
         default: true
+    secrets:
+      secret-build-args:
+        description: |
+          Additional newline-separated KEY=VALUE Docker build arguments whose values are secrets.
+          Used only by the fallback rebuild path — ignored on the fast-path promotion, which
+          inherits the layers built by reusable-container-build.yml. Pass the same secrets as
+          the PR-phase caller so the fallback rebuild produces an equivalent image.
+        required: false
     outputs:
       version:
         description: 'Released version'
@@ -169,6 +177,7 @@ jobs:
             COMMIT_SHA=${{ github.sha }}
             GIT_BRANCH=${{ github.ref_name }}
             ${{ inputs.build-args }}
+            ${{ secrets.secret-build-args }}
           cache-from: type=gha,scope=${{ inputs.cache-scope }}
           cache-to: type=gha,mode=max,scope=${{ inputs.cache-scope }}
           provenance: mode=max
