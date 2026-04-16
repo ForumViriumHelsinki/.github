@@ -49,6 +49,15 @@ on:
         required: false
         type: string
         default: "jq -r '.version' package.json"
+    secrets:
+      secret-build-args:
+        description: |
+          Additional newline-separated KEY=VALUE Docker build arguments whose values are secrets.
+          Use for tokens that must reach the build but should not appear in the `build-args` input.
+          Values are masked in logs. The caller typically populates this with secrets from its
+          own repository, e.g. passing a Sentry auth token or an NPM registry token. See the
+          caller-side documentation for usage examples.
+        required: false
     outputs:
       pre-release-tag:
         description: 'The full pre-release image reference pushed (ghcr.io/…:next-{version})'
@@ -112,6 +121,7 @@ jobs:
             COMMIT_SHA=${{ github.sha }}
             GIT_BRANCH=${{ github.ref_name }}
             ${{ inputs.build-args }}
+            ${{ secrets.secret-build-args }}
           cache-from: type=gha,scope=${{ inputs.cache-scope }}
           cache-to: type=gha,mode=max,scope=${{ inputs.cache-scope }}
           # SBOM and provenance deferred to the release/promote job
