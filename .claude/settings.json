@@ -1,5 +1,15 @@
 {
   "permissions": {
+    "allow": [
+      "Bash(git:*)",
+      "Bash(gh:*)",
+      "Bash(pre-commit:*)",
+      "Bash(gitleaks:*)",
+      "Bash(python3:*)",
+      "Bash(actionlint:*)",
+      "Bash(npx rulesync:*)",
+      "mcp__github"
+    ],
     "deny": [
       "Read(.rulesync/)",
       "Read(node_modules/)",
@@ -7,5 +17,20 @@
       "Read(rulesync.local.jsonc)",
       "Read(rulesync.lock)"
     ]
+  },
+  "extraKnownMarketplaces": {
+    "claude-plugins": {
+      "source": { "source": "github", "repo": "laurigates/claude-plugins" },
+      "autoUpdate": true
+    }
+  },
+  "enabledPlugins": {
+    "configure-plugin@claude-plugins": true,
+    "health-plugin@claude-plugins": true,
+    "hooks-plugin@claude-plugins": true,
+    "github-actions-plugin@claude-plugins": true,
+    "git-plugin@claude-plugins": true,
+    "code-quality-plugin@claude-plugins": true,
+    "tools-plugin@claude-plugins": true
   }
 }
