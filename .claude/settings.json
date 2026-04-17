@@ -8,6 +8,7 @@
       "Bash(python3:*)",
       "Bash(actionlint:*)",
       "Bash(npx rulesync:*)",
+      "Bash(npx rulesync@*)",
       "mcp__github"
     ],
     "deny": [
