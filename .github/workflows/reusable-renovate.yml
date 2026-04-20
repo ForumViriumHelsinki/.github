@@ -18,6 +18,30 @@ on:
         required: false
         type: string
         default: 'false'
+      app-id:
+        description: 'Renovate GitHub App ID. When set, generates an App token (via APP_PRIVATE_KEY) instead of using GITHUB_TOKEN.'
+        required: false
+        type: string
+        default: ''
+      bot-username:
+        description: 'RENOVATE_USERNAME (e.g. fvh-renovate-bot[bot]). Only applies when app-id is set.'
+        required: false
+        type: string
+        default: ''
+      bot-git-author:
+        description: 'RENOVATE_GIT_AUTHOR full author string (e.g. "bot <bot[bot]@users.noreply.github.com>"). Only applies when app-id is set.'
+        required: false
+        type: string
+        default: ''
+      timeout-minutes:
+        description: 'Job timeout in minutes'
+        required: false
+        type: number
+        default: 60
+    secrets:
+      APP_PRIVATE_KEY:
+        description: 'Renovate App private key. Required iff app-id is set.'
+        required: false
 
 concurrency:
   group: renovate-${{ github.repository }}
@@ -32,15 +56,27 @@ permissions:
 jobs:
   renovate:
     runs-on: ubuntu-latest
+    timeout-minutes: ${{ inputs.timeout-minutes }}
     steps:
+      - name: Generate GitHub App token
+        id: app-token
+        if: inputs.app-id != ''
+        uses: actions/create-github-app-token@1b10c78c7865c340bc4f6099eb2f838309f1e8c3 # v3.1.1
+        with:
+          app-id: ${{ inputs.app-id }}
+          private-key: ${{ secrets.APP_PRIVATE_KEY }}
+          owner: ${{ github.repository_owner }}
+
       - uses: actions/checkout@v6
 
       - uses: renovatebot/github-action@v46.1.0
         with:
-          token: ${{ secrets.GITHUB_TOKEN }}
+          token: ${{ inputs.app-id != '' && steps.app-token.outputs.token || secrets.GITHUB_TOKEN }}
           configurationFile: ${{ inputs.config-file }}
         env:
           LOG_LEVEL: ${{ inputs.log-level }}
           RENOVATE_DRY_RUN: ${{ inputs.dry-run != 'false' && inputs.dry-run || '' }}
+          RENOVATE_USERNAME: ${{ inputs.bot-username }}
+          RENOVATE_GIT_AUTHOR: ${{ inputs.bot-git-author }}
           RENOVATE_REPOSITORIES: ${{ github.repository }}
-          RENOVATE_HOST_RULES: '[{"matchHost":"ghcr.io","hostType":"docker","username":"x-access-token","password":"${{ secrets.GITHUB_TOKEN }}"}]'
+          RENOVATE_HOST_RULES: "[{\"matchHost\":\"ghcr.io\",\"hostType\":\"docker\",\"username\":\"x-access-token\",\"password\":\"${{ inputs.app-id != '' && steps.app-token.outputs.token || secrets.GITHUB_TOKEN }}\"}]"
