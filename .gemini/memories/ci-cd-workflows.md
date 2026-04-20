@@ -14,13 +14,77 @@ uses: ForumViriumHelsinki/.github/.github/workflows/<name>.yml@main
 
 ### Required Workflows
 
-| Caller Workflow | Reusable Workflow | Trigger | Org Secret |
-|----------------|-------------------|---------|------------|
-| `release-please.yml` | `reusable-release-please.yml` | Push to `main` | `MY_RELEASE_PLEASE_TOKEN` |
+| Caller Workflow | Reusable Workflow | Trigger | Auth |
+|----------------|-------------------|---------|------|
+| `release-please.yml` | `reusable-release-please.yml` | Push to `main` | `MY_RELEASE_PLEASE_TOKEN` (PAT) or `app-id` + `APP_PRIVATE_KEY` |
 | `container-build.yml` | `reusable-container-build.yml` | release-please PR (PR phase) | — |
 | `container-release.yml` | `reusable-container-release.yml` | Published release (release phase) | — |
 | `auto-merge-image-updater.yml` | `reusable-auto-merge-image-updater.yml` | `image-updater-**` branches | `AUTO_MERGE_PAT` |
 | `claude.yml` | `reusable-claude.yml` | Issue/PR @-mentions | `CLAUDE_CODE_OAUTH_TOKEN` |
+
+### Release-Please Workflow Inputs
+
+`reusable-release-please.yml` accepts these inputs:
+
+| Input | Type | Default | Description |
+|-------|------|---------|-------------|
+| `config-file` | string | `release-please-config.json` | Path to release-please config file |
+| `manifest-file` | string | `.release-please-manifest.json` | Path to release-please manifest file |
+| `app-id` | string | `''` | GitHub App ID; when set, uses an App token instead of `MY_RELEASE_PLEASE_TOKEN` |
+| `runner` | string | `ubuntu-latest` | Runner label |
+| `timeout-minutes` | number | `15` | Job timeout in minutes |
+| `skip-on-release-commit` | boolean | `false` | Skip when the head commit starts with `chore(main): release` to prevent cascading releases |
+
+Secrets:
+- `MY_RELEASE_PLEASE_TOKEN` — PAT with `contents:write` and `pull-requests:write` scopes. Required when `app-id` is empty.
+- `APP_PRIVATE_KEY` — GitHub App private key. Required when `app-id` is set.
+
+Example — App-token caller (infrastructure repo):
+
+```yaml
+uses: ForumViriumHelsinki/.github/.github/workflows/reusable-release-please.yml@main
+with:
+  app-id: ${{ vars.RELEASE_PLEASE_APP_ID }}
+secrets:
+  APP_PRIVATE_KEY: ${{ secrets.RELEASE_PLEASE_APP_PRIVATE_KEY }}
+```
+
+Example — PAT caller (existing repos, unchanged):
+
+```yaml
+uses: ForumViriumHelsinki/.github/.github/workflows/reusable-release-please.yml@main
+secrets:
+  MY_RELEASE_PLEASE_TOKEN: ${{ secrets.MY_RELEASE_PLEASE_TOKEN }}
+```
+
+### Renovate Workflow Inputs
+
+`reusable-renovate.yml` accepts these inputs:
+
+| Input | Type | Default | Description |
+|-------|------|---------|-------------|
+| `config-file` | string | `renovate.json` | Path to renovate config file |
+| `log-level` | string | `info` | Renovate log level |
+| `dry-run` | string | `false` | Dry run mode (`false`, `full`, `lookup`) |
+| `app-id` | string | `''` | Renovate GitHub App ID; when set, generates an App token instead of using `GITHUB_TOKEN` |
+| `bot-username` | string | `''` | `RENOVATE_USERNAME` (e.g. `fvh-renovate-bot[bot]`). Only applies when `app-id` is set. |
+| `bot-git-author` | string | `''` | `RENOVATE_GIT_AUTHOR` full author string. Only applies when `app-id` is set. |
+| `timeout-minutes` | number | `60` | Job timeout in minutes |
+
+Secrets:
+- `APP_PRIVATE_KEY` — Renovate App private key. Required iff `app-id` is set.
+
+Example — App-token caller (infrastructure repo):
+
+```yaml
+uses: ForumViriumHelsinki/.github/.github/workflows/reusable-renovate.yml@main
+with:
+  app-id: ${{ vars.RENOVATE_APP_ID }}
+  bot-username: fvh-renovate-bot[bot]
+  bot-git-author: fvh-renovate-bot <fvh-renovate-bot[bot]@users.noreply.github.com>
+secrets:
+  APP_PRIVATE_KEY: ${{ secrets.RENOVATE_APP_PRIVATE_KEY }}
+```
 
 ### Claude Workflow Inputs
 
