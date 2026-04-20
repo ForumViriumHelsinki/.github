@@ -21,6 +21,7 @@ uses: ForumViriumHelsinki/.github/.github/workflows/<name>.yml@main
 | Caller Workflow | Reusable Workflow | Trigger | Auth |
 |----------------|-------------------|---------|------|
 | `release-please.yml` | `reusable-release-please.yml` | Push to `main` | `MY_RELEASE_PLEASE_TOKEN` (PAT) or `app-id` + `APP_PRIVATE_KEY` |
+| `renovate.yml` | `reusable-renovate.yml` | Schedule | `GITHUB_TOKEN` or `app-id` + `APP_PRIVATE_KEY` |
 | `container-build.yml` | `reusable-container-build.yml` | release-please PR (PR phase) | — |
 | `container-release.yml` | `reusable-container-release.yml` | Published release (release phase) | — |
 | `auto-merge-image-updater.yml` | `reusable-auto-merge-image-updater.yml` | `image-updater-**` branches | `AUTO_MERGE_PAT` |
