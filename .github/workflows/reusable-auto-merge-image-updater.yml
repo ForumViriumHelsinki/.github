@@ -67,6 +67,11 @@ jobs:
         run: gh pr review --approve "${{ github.ref_name }}"
 
       - name: Enable auto-merge
+        # Run outside the checkout so gh skips local-clone cleanup. With
+        # --delete-branch, gh otherwise tries `git checkout -B main origin/main`,
+        # which fails in a fetch-depth=1 checkout that only has the PR branch.
+        working-directory: ${{ runner.temp }}
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_REPO: ${{ github.repository }}
         run: gh pr merge --auto --delete-branch --${{ inputs.merge-method }} "${{ github.ref_name }}"
