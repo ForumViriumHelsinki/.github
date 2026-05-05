@@ -25,10 +25,13 @@ on:
           Comma-separated list of additional tools to allow beyond the action defaults
           (Glob, Grep, LS, Read, git commit/push). Passed to --allowedTools.
           Default covers FVH stack: file editing, Python (uv/pytest/ruff),
-          TypeScript (bun/biome), just task runner, and pre-commit hooks.
+          TypeScript (bun/biome), just task runner, pre-commit hooks, and
+          GitHub MCP server tools for issue management (mcp__github__*).
+          Listing any mcp__github__* tool causes the action to mount
+          ghcr.io/github/github-mcp-server automatically.
         type: string
         required: false
-        default: 'Edit,Write,Bash(uv *),Bash(pytest *),Bash(python *),Bash(ruff *),Bash(bun *),Bash(biome *),Bash(node *),Bash(just *),Bash(pre-commit *),Bash(make *)'
+        default: 'Edit,Write,Bash(uv *),Bash(pytest *),Bash(python *),Bash(ruff *),Bash(bun *),Bash(biome *),Bash(node *),Bash(just *),Bash(pre-commit *),Bash(make *),mcp__github__get_issue,mcp__github__list_issues,mcp__github__list_issue_types,mcp__github__search_issues,mcp__github__create_issue,mcp__github__update_issue,mcp__github__add_issue_comment,mcp__github__get_issue_comments,mcp__github__add_sub_issue,mcp__github__list_sub_issues'
     secrets:
       CLAUDE_CODE_OAUTH_TOKEN:
         required: true
