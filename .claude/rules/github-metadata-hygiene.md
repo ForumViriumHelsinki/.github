@@ -18,7 +18,7 @@ Apply these checks when:
 | Field | Required | How to Set | Default |
 |-------|----------|-----------|---------|
 | Assignee | Always | `-a @laurigates` | `laurigates` unless told otherwise |
-| Labels | Always | `-l <name>` | At minimum a type label: `bug`, `enhancement`, `chore`, `docs` |
+| Labels | Always | `-l <name>` | At minimum a type label: `bug`, `enhancement`, `chore`, `docs`, `security` |
 | Project | Always | `-p <title>` | Determine from context (see project table below); ask if ambiguous |
 | Milestone | If exists | `--milestone <name>` | Set if a relevant milestone exists for the repo |
 | Issue type | If supported | MCP `issue_write` with `type` param | Check `list_issue_types` for the org first |
