@@ -30,7 +30,7 @@ Apply these checks when:
 
 | Field | Required | How to Set | Default |
 |-------|----------|-----------|---------|
-| Reviewer | If not author | `-r laurigates` | `laurigates` unless told otherwise; **skip if user is the PR author** (GitHub API rejects self-review requests with HTTP 422) |
+| Reviewer | If not author | `-r @laurigates` | `laurigates` unless told otherwise; **skip if user is the PR author** (GitHub API rejects self-review requests with HTTP 422) |
 | Assignee | Always | `-a @laurigates` | `laurigates` unless told otherwise |
 | Labels | Always | `-l <name>` | Match linked issue labels; add type label if missing |
 | Project | Always | `-p <title>` | Same project as linked issue |

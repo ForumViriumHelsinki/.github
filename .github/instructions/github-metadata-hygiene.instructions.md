@@ -30,7 +30,7 @@ Apply these checks when:
 
 | Field | Required | How to Set | Default |
 |-------|----------|-----------|---------|
-| Reviewer | If not author | `-r laurigates` | `laurigates` unless told otherwise; **skip if user is the PR author** (GitHub API rejects self-review requests with HTTP 422) |
+| Reviewer | If not author | `-r @laurigates` | `laurigates` unless told otherwise; **skip if user is the PR author** (GitHub API rejects self-review requests with HTTP 422) |
 | Assignee | Always | `-a @laurigates` | `laurigates` unless told otherwise |
 | Labels | Always | `-l <name>` | Match linked issue labels; add type label if missing |
 | Project | Always | `-p <title>` | Same project as linked issue |
@@ -40,7 +40,7 @@ Apply these checks when:
 
 ### Project Determination
 
-Match context to the appropriate org project. Use repository name, file paths, and task description as signals. Always apply the corresponding `project:*` label when creating issues/PRs — this label drives automated project board routing.
+Match context to the appropriate org project. Use repository name, file paths, and task description as signals. When a corresponding `project:*` label is defined in the table below, always apply it when creating issues/PRs — this label drives automated project board routing.
 
 | # | Project | Label | Context Signals |
 |---|---------|-------|----------------|
