@@ -99,7 +99,7 @@ secrets:
 |-------|------|---------|-------------|
 | `runner` | string | `ubuntu-slim` | Runner label |
 | `max_turns` | number | `30` | Maximum agentic turns before stopping |
-| `claude_args` | string | `''` | Additional CLI arguments. These are appended after built-in arguments. Avoid passing arguments like `--max-turns` that are handled by dedicated inputs to prevent conflicts. |
+| `claude_args` | string | `''` | Additional CLI arguments (appended after built-in `--max-turns` and `--system-prompt`) |
 
 Example — increase turns for a large codebase:
 
@@ -134,6 +134,16 @@ The workflow also injects a `--system-prompt` instructing Claude to commit and p
 | `quality-typescript.yml` | `reusable-quality-typescript.yml` | TypeScript strictness |
 | `a11y-aria.yml` | `reusable-a11y-aria.yml` | ARIA pattern correctness |
 | `a11y-wcag.yml` | `reusable-a11y-wcag.yml` | WCAG 2.1 compliance |
+
+## Adoption Audit
+
+When opening, editing, or reviewing a workflow file in any FVH application repo, briefly scan the rest of `.github/workflows/` and surface adoption gaps:
+
+- Inline build/release/security/quality logic that duplicates a reusable workflow → propose migrating to `uses: ForumViriumHelsinki/.github/...`.
+- Missing standard workflows for a deployed application (release-please, container build/release, image-updater auto-merge, claude).
+- Pinned `@<sha>` / `@v1` references to reusable workflows — confirm they are intentional vs. drift from `@main`.
+
+Surface findings in the response — do not silently rewrite unrelated workflow files. Migration to reusable workflows is a deliberate change. Workspace-wide adoption status is also visible via `just fvh::workflow-matrix` from the workspace root.
 
 ## Build-Once/Promote Pattern
 
