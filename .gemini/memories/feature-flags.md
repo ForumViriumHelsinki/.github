@@ -45,13 +45,13 @@ externalSecret:
 Configure the GOFF provider with the evaluation key from the injected env vars:
 
 ```python
-# Python example
+import os
 from openfeature import api
-from openfeature.contrib.provider.flagd import FlagdProvider
+from openfeature.contrib.provider.gofeatureflag import GoFeatureFlagProvider
 
 api.set_provider(GoFeatureFlagProvider(
-    endpoint=os.environ["GOFEATUREFLAG_ENDPOINT"],
-    api_key=os.environ["GOFF_CLIENT_ID"],
+    endpoint=os.environ.get("GOFEATUREFLAG_ENDPOINT"),
+    api_key=os.environ.get("GOFF_CLIENT_ID"),
 ))
 ```
 
