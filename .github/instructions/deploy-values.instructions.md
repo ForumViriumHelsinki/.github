@@ -151,6 +151,22 @@ volumeMounts:
     mountPath: /tmp
 ```
 
+### Feature Flags (GoFeatureFlag)
+
+```yaml
+featureFlags:
+  enabled: true  # Injects GOFEATUREFLAG_ENDPOINT env var automatically
+
+env:
+  - name: GOFF_CLIENT_ID
+    valueFrom:
+      secretKeyRef:
+        name: my-app-secrets
+        key: GOFF_CLIENT_ID
+```
+
+Prefer GOFF over `ENABLE_*` / `FEATURE_*` env vars for any runtime toggle. See `.claude/rules/feature-flags.md` for the full pattern and evaluation key provisioning.
+
 ### Resource Requests and Limits
 
 ```yaml
