@@ -18,7 +18,7 @@ Apply these checks when:
 | Field | Required | How to Set | Default |
 |-------|----------|-----------|---------|
 | Assignee | Always | `-a @laurigates` | `laurigates` unless told otherwise |
-| Labels | Always | `-l <name>` | At minimum a type label: `bug`, `enhancement`, `chore`, `docs`, `security` |
+| Labels | Always | `-l <name>` | At minimum a type label: `bug`, `enhancement`, `chore`, `documentation`, `security` |
 | Project | Always | `-p <title>` | Determine from context (see project table below); ask if ambiguous |
 | Milestone | If exists | `--milestone <name>` | Set if a relevant milestone exists for the repo |
 | Issue type | If supported | MCP `issue_write` with `type` param | Check `list_issue_types` for the org first |
@@ -73,7 +73,7 @@ Use these standard type labels consistently:
 | `bug` | Defect or broken behavior |
 | `enhancement` | New feature or improvement to existing feature |
 | `chore` | Maintenance, dependency updates, refactoring |
-| `docs` | Documentation changes |
+| `documentation` | Documentation changes |
 | `security` | Security-related fixes or improvements |
 
 Check available labels with `gh label list -R <owner>/<repo>` before applying — do not create labels that don't exist without asking.
