@@ -31,6 +31,8 @@ Renovate runs **from the infrastructure repo only**. Do NOT add Renovate workflo
 
 Application repos may have a `renovate.json` for configuration (e.g., custom grouping, automerge rules), but the workflow that triggers Renovate lives in the infrastructure repo.
 
+Renovate auto-generates a **Dependency Dashboard** issue in each managed repo. These are operational artifacts — **do not add them to GitHub Projects** and do not close them manually. Renovate manages their lifecycle.
+
 ## release-please
 
 Driven by conventional commits on the `main` branch:
