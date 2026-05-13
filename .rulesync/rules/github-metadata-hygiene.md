@@ -54,6 +54,7 @@ Match context to the appropriate org project. Use repository name, file paths, a
 | 8 | R4C Digital Twin | `project:r4c` | R4C, Cesium, 3D visualization |
 | 9 | Platform Automation | `project:platform-automation` | Terraform, ArgoCD, platform tooling, infrastructure repo |
 | 10 | Kyverno Policies | `project:kyverno` | Security policies, admission control |
+| 11 | Cost Attribution Tooling | `project:cost-attribution` | `fvh-cost-attribution` repo, cost attribution, monthly cost reports, FinOps tooling |
 
 If context doesn't clearly map to one project, ask the user before proceeding.
 
