@@ -252,7 +252,7 @@ jobs:
           echo "signed=true" >> $GITHUB_OUTPUT
 
       - name: Run Trivy vulnerability scanner
-        uses: aquasecurity/trivy-action@c1824fd6edce30d7ab345a9989de00bbd46ef284 # 0.34.0
+        uses: aquasecurity/trivy-action@a9c7b0f06e461e9d4b4d1711f154ee024b8d7ab8 # 0.36.0
         with:
           image-ref: ghcr.io/${{ inputs.image-name }}:${{ steps.meta.outputs.version }}
           format: 'table'
