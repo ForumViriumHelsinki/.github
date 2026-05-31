@@ -25,7 +25,7 @@ uses: ForumViriumHelsinki/.github/.github/workflows/<name>.yml@main
 | `renovate.yml` | `reusable-renovate.yml` | Schedule | `GITHUB_TOKEN` or `app-id` + `APP_PRIVATE_KEY` |
 | `container-build.yml` | `reusable-container-build.yml` | release-please PR (PR phase) | — |
 | `container-release.yml` | `reusable-container-release.yml` | Published release (release phase) | — |
-| `auto-merge-image-updater.yml` | `reusable-auto-merge-image-updater.yml` | `image-updater-**` branches | `AUTO_MERGE_PAT` |
+| `auto-merge-image-updater.yml` | `reusable-auto-merge-image-updater.yml` | `image-updater-**` branches | `AUTO_MERGE_PAT` or `app-id` + `APP_PRIVATE_KEY` |
 | `claude.yml` | `reusable-claude.yml` | Issue/PR @-mentions | `CLAUDE_CODE_OAUTH_TOKEN` |
 
 ### Release-Please Workflow Inputs
@@ -50,9 +50,9 @@ Example — App-token caller (infrastructure repo):
 ```yaml
 uses: ForumViriumHelsinki/.github/.github/workflows/reusable-release-please.yml@main
 with:
-  app-id: ${{ vars.RELEASE_PLEASE_APP_ID }}
+  app-id: ${{ vars.CI_APP_ID }}
 secrets:
-  APP_PRIVATE_KEY: ${{ secrets.RELEASE_PLEASE_APP_PRIVATE_KEY }}
+  APP_PRIVATE_KEY: ${{ secrets.CI_APP_PRIVATE_KEY }}
 ```
 
 Example — PAT caller (existing repos, unchanged):
