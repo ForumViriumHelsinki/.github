@@ -38,6 +38,21 @@ on:
         required: false
         type: number
         default: 60
+      repositories:
+        description: 'Explicit RENOVATE_REPOSITORIES value (space- or comma-separated owner/repo slugs). Overrides the default of scanning only the calling repo. Ignored when autodiscover is enabled.'
+        required: false
+        type: string
+        default: ''
+      autodiscover:
+        description: 'Set to true to autodiscover every repository the App installation can access (RENOVATE_AUTODISCOVER), optionally narrowed by autodiscover-filter. Takes precedence over repositories.'
+        required: false
+        type: string
+        default: 'false'
+      autodiscover-filter:
+        description: 'RENOVATE_AUTODISCOVER_FILTER value (e.g. ForumViriumHelsinki/*) scoping autodiscovery. Only applies when autodiscover is true.'
+        required: false
+        type: string
+        default: ''
     secrets:
       APP_PRIVATE_KEY:
         description: 'Renovate App private key. Required iff app-id is set.'
@@ -69,6 +84,24 @@ jobs:
 
       - uses: actions/checkout@v6
 
+      - name: Resolve Renovate target repositories
+        env:
+          AUTODISCOVER: ${{ inputs.autodiscover }}
+          AUTODISCOVER_FILTER: ${{ inputs.autodiscover-filter }}
+          REPOSITORIES: ${{ inputs.repositories }}
+          DEFAULT_REPOSITORY: ${{ github.repository }}
+        run: |
+          if [ "$AUTODISCOVER" = "true" ]; then
+            {
+              echo "RENOVATE_AUTODISCOVER=true"
+              echo "RENOVATE_AUTODISCOVER_FILTER=$AUTODISCOVER_FILTER"
+            } >> "$GITHUB_ENV"
+          elif [ -n "$REPOSITORIES" ]; then
+            echo "RENOVATE_REPOSITORIES=$REPOSITORIES" >> "$GITHUB_ENV"
+          else
+            echo "RENOVATE_REPOSITORIES=$DEFAULT_REPOSITORY" >> "$GITHUB_ENV"
+          fi
+
       - uses: renovatebot/github-action@v46.1.0
         with:
           token: ${{ inputs.app-id != '' && steps.app-token.outputs.token || secrets.GITHUB_TOKEN }}
@@ -78,5 +111,4 @@ jobs:
           RENOVATE_DRY_RUN: ${{ inputs.dry-run != 'false' && inputs.dry-run || '' }}
           RENOVATE_USERNAME: ${{ inputs.bot-username }}
           RENOVATE_GIT_AUTHOR: ${{ inputs.bot-git-author }}
-          RENOVATE_REPOSITORIES: ${{ github.repository }}
           RENOVATE_HOST_RULES: "[{\"matchHost\":\"ghcr.io\",\"hostType\":\"docker\",\"username\":\"x-access-token\",\"password\":\"${{ inputs.app-id != '' && steps.app-token.outputs.token || secrets.GITHUB_TOKEN }}\"}]"
