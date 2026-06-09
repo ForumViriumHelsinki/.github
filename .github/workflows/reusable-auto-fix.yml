@@ -90,10 +90,10 @@ on:
           - Issues requiring secrets or credentials changes
           - Failures in workflows not related to code changes on this branch
       claude_args:
-        description: 'Additional arguments for Claude Code (e.g., "--model sonnet --max-turns 30")'
+        description: 'Additional arguments for Claude Code (e.g., "--model claude-opus-4-8 --effort medium --max-turns 30")'
         required: false
         type: string
-        default: '--model sonnet --max-turns 30'
+        default: '--model claude-opus-4-8 --effort medium --max-turns 30'
       additional_permissions:
         description: 'Additional tool permissions for Claude Code'
         required: false
