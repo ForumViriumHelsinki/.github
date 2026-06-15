@@ -35,8 +35,10 @@ jobs:
   release-please:
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     uses: ForumViriumHelsinki/.github/.github/workflows/reusable-release-please.yml@main
+    with:
+      app-id: ${{ vars.CI_APP_ID }}
     secrets:
-      RELEASE_PLEASE_TOKEN: ${{ secrets.MY_RELEASE_PLEASE_TOKEN }}
+      APP_PRIVATE_KEY: ${{ secrets.CI_APP_PRIVATE_KEY }}
 
   # Auto-merge ArgoCD Image Updater PRs.
   # Single-job design: creates PR, approves, and enables auto-merge in one run
