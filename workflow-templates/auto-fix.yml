@@ -35,4 +35,7 @@ jobs:
       #   - Type errors with obvious fixes
     secrets:
       CLAUDE_CODE_OAUTH_TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+      # Optional elevated token so auto-fix commits can trigger downstream
+      # workflows. The legacy MY_RELEASE_PLEASE_TOKEN PAT expired 2026-06 —
+      # provision a GitHub App token (CI_APP_ID + CI_APP_PRIVATE_KEY) instead.
       # PAT_TOKEN: ${{ secrets.MY_RELEASE_PLEASE_TOKEN }}
