@@ -21,7 +21,7 @@ uses: ForumViriumHelsinki/.github/.github/workflows/<name>.yml@main
 
 | Caller Workflow | Reusable Workflow | Trigger | Auth |
 |----------------|-------------------|---------|------|
-| `release-please.yml` | `reusable-release-please.yml` | Push to `main` | `MY_RELEASE_PLEASE_TOKEN` (PAT) or `app-id` + `APP_PRIVATE_KEY` |
+| `release-please.yml` | `reusable-release-please.yml` | Push to `main` | `app-id` + `APP_PRIVATE_KEY` (preferred) or `MY_RELEASE_PLEASE_TOKEN` (PAT, legacy) |
 | `renovate.yml` | `reusable-renovate.yml` | Schedule | `GITHUB_TOKEN` or `app-id` + `APP_PRIVATE_KEY` |
 | `container-build.yml` | `reusable-container-build.yml` | release-please PR (PR phase) | — |
 | `container-release.yml` | `reusable-container-release.yml` | Published release (release phase) | — |
@@ -36,16 +36,16 @@ uses: ForumViriumHelsinki/.github/.github/workflows/<name>.yml@main
 |-------|------|---------|-------------|
 | `config-file` | string | `release-please-config.json` | Path to release-please config file |
 | `manifest-file` | string | `.release-please-manifest.json` | Path to release-please manifest file |
-| `app-id` | string | `''` | GitHub App ID; when set, uses an App token instead of `MY_RELEASE_PLEASE_TOKEN` |
+| `app-id` | string | `''` | GitHub App ID (**preferred**); when set, uses an App token instead of the legacy `MY_RELEASE_PLEASE_TOKEN` PAT |
 | `runner` | string | `ubuntu-latest` | Runner label |
 | `timeout-minutes` | number | `15` | Job timeout in minutes |
 | `skip-on-release-commit` | boolean | `false` | Skip when the head commit starts with `chore(main): release` to prevent cascading releases |
 
 Secrets:
-- `MY_RELEASE_PLEASE_TOKEN` — PAT with `contents:write` and `pull-requests:write` scopes. Required when `app-id` is empty.
-- `APP_PRIVATE_KEY` — GitHub App private key. Required when `app-id` is set.
+- `APP_PRIVATE_KEY` — GitHub App private key. Required when `app-id` is set. **Preferred — this is the org standard.**
+- `MY_RELEASE_PLEASE_TOKEN` — legacy PAT with `contents:write` and `pull-requests:write` scopes. Used only when `app-id` is empty. The shared org PAT expired 2026-06; new and migrated repos must use the App token.
 
-Example — App-token caller (infrastructure repo):
+Example — App-token caller (recommended; default for all repos):
 
 ```yaml
 uses: ForumViriumHelsinki/.github/.github/workflows/reusable-release-please.yml@main
@@ -55,7 +55,7 @@ secrets:
   APP_PRIVATE_KEY: ${{ secrets.CI_APP_PRIVATE_KEY }}
 ```
 
-Example — PAT caller (existing repos, unchanged):
+Example — PAT caller (legacy; the shared org PAT expired 2026-06 — migrate to the App token above):
 
 ```yaml
 uses: ForumViriumHelsinki/.github/.github/workflows/reusable-release-please.yml@main
