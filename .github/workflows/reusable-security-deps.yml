@@ -102,8 +102,9 @@ jobs:
               npm audit --json > audit-results.json 2>&1 || true
               ;;
             bun)
-              # Bun doesn't have built-in audit, use npm
-              npm audit --json > audit-results.json 2>&1 || true
+              # bun audit reads bun.lock natively (Bun >=1.2.15); no install needed.
+              # npm audit ENOLOCKs here since the repo has no package-lock.json.
+              bun audit --json > audit-results.json 2>&1 || true
               ;;
             pnpm)
               pnpm audit --json > audit-results.json 2>&1 || true
