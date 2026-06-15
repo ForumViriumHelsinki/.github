@@ -135,6 +135,11 @@ jobs:
         with:
           claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
           claude_args: "--model haiku --max-turns ${{ inputs.max-turns }}"
+          # Dependency PRs are bot-authored (Renovate, release-please). On a
+          # re-run GitHub replays the original pull_request event whose sender
+          # is the bot, so the action's human-actor guard blocks it without
+          # this. Audit-and-comment is read-only with a fixed prompt — safe.
+          allowed_bots: "*"
           prompt: |
             Analyze the dependency security audit results for this project.
 
