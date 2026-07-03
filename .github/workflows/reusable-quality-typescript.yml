@@ -12,12 +12,42 @@ on:
         description: 'Maximum Claude turns'
         required: false
         type: number
-        default: 5
+        default: 50
+      model:
+        description: 'Claude model to use'
+        required: false
+        type: string
+        default: 'haiku'
+      allowed-bots:
+        description: "Comma-separated bot usernames allowed to trigger analysis (e.g. 'renovate[bot]')"
+        required: false
+        type: string
+        default: ''
+      use-sticky-comment:
+        description: 'Maintain a single PR comment instead of posting a new comment per run'
+        required: false
+        type: boolean
+        default: true
+      max-budget-usd:
+        description: 'Maximum spend per run in USD (0 = no budget limit)'
+        required: false
+        type: number
+        default: 0
+      timeout-minutes:
+        description: 'Job timeout in minutes'
+        required: false
+        type: number
+        default: 30
       file-limit:
         description: 'Maximum number of changed files to analyze'
         required: false
         type: number
         default: 30
+      max-diff-lines:
+        description: 'Skip Claude analysis when the total PR diff exceeds this many lines (0 disables the gate)'
+        required: false
+        type: number
+        default: 3000
       strict-mode:
         description: 'Enforce strict type checking'
         required: false
@@ -42,9 +72,10 @@ permissions:
 jobs:
   analyze:
     runs-on: ubuntu-latest
+    timeout-minutes: ${{ inputs.timeout-minutes }}
     outputs:
-      any: ${{ steps.scan.outputs.any-count }}
-      total: ${{ steps.scan.outputs.total }}
+      any: ${{ fromJSON(steps.scan.outputs.structured_output || '{}').any_count }}
+      total: ${{ fromJSON(steps.scan.outputs.structured_output || '{}').total_issues }}
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -56,30 +87,64 @@ jobs:
         run: |
           set -f
           if [ "${{ github.event_name }}" = "pull_request" ]; then
-            FILES=$(git diff --name-only origin/${{ github.base_ref }}...HEAD -- ${{ inputs.file-patterns }} 2>/dev/null | head -n ${{ inputs.file-limit }} || echo "")
+            RANGE="origin/${{ github.base_ref }}...HEAD"
           else
-            FILES=$(git diff --name-only HEAD~1 -- ${{ inputs.file-patterns }} 2>/dev/null | head -n ${{ inputs.file-limit }} || echo "")
+            RANGE="HEAD~1"
           fi
+          ALL_FILES=$(git diff --name-only "$RANGE" -- ${{ inputs.file-patterns }} 2>/dev/null || echo "")
           set +f
+          FILES=$(echo "$ALL_FILES" | head -n ${{ inputs.file-limit }} || true)
+          TOTAL_FILES=$(echo "$ALL_FILES" | grep -c '.' || true)
           FILE_COUNT=$(echo "$FILES" | grep -c '.' || true)
+          # numstat prints '-' for binary files; awk sums those as 0
+          DIFF_LINES=$(git diff --numstat "$RANGE" 2>/dev/null | awk '{s+=$1+$2} END {print s+0}' || true)
           echo "count=$FILE_COUNT" >> $GITHUB_OUTPUT
+          echo "diff_lines=$DIFF_LINES" >> $GITHUB_OUTPUT
+          echo "total_files=$TOTAL_FILES" >> $GITHUB_OUTPUT
+          if [ "${{ inputs.max-diff-lines }}" -gt 0 ] && [ "$DIFF_LINES" -gt "${{ inputs.max-diff-lines }}" ]; then
+            echo "skip=true" >> $GITHUB_OUTPUT
+          else
+            echo "skip=false" >> $GITHUB_OUTPUT
+          fi
+          if [ "$TOTAL_FILES" -gt "${{ inputs.file-limit }}" ]; then
+            echo "truncated=true" >> $GITHUB_OUTPUT
+            MSG="TypeScript Strictness: analyzing only the first ${{ inputs.file-limit }} of $TOTAL_FILES matched files"
+            echo "::notice::$MSG"
+            echo "$MSG" >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "truncated=false" >> $GITHUB_OUTPUT
+          fi
           echo "files<<EOF" >> $GITHUB_OUTPUT
           echo "$FILES" >> $GITHUB_OUTPUT
           echo "EOF" >> $GITHUB_OUTPUT
 
+      - name: Diff-size skip notice
+        if: steps.changed.outputs.skip == 'true'
+        run: |
+          MSG="TypeScript Strictness: skipping Claude analysis — PR diff ${{ steps.changed.outputs.diff_lines }} lines exceeds max-diff-lines ${{ inputs.max-diff-lines }}"
+          echo "::notice::$MSG"
+          echo "$MSG" >> "$GITHUB_STEP_SUMMARY"
+
       - name: Claude TypeScript Analysis
         id: scan
-        if: steps.changed.outputs.count != '0'
+        if: steps.changed.outputs.count != '0' && steps.changed.outputs.skip != 'true'
         uses: anthropics/claude-code-action@v1
         with:
           claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
-          claude_args: "--model haiku --max-turns ${{ inputs.max-turns }}"
+          allowed_bots: ${{ inputs.allowed-bots }}
+          use_sticky_comment: ${{ inputs.use-sticky-comment }}
+          claude_args: >-
+            --model ${{ inputs.model }}
+            --max-turns ${{ inputs.max-turns }}
+            ${{ inputs.max-budget-usd > 0 && format('--max-budget-usd {0}', inputs.max-budget-usd) || '' }}
+            --json-schema '{"type":"object","properties":{"any_count":{"type":"integer","description":"Number of explicit any usages found"},"total_issues":{"type":"integer","description":"Total type safety issues found"}},"required":["any_count","total_issues"]}'
           prompt: |
             Review TypeScript changes for type safety issues.
             Strict mode: ${{ inputs.strict-mode }}
 
             ## Files to analyze
             ${{ steps.changed.outputs.files }}
+            ${{ steps.changed.outputs.truncated == 'true' && 'NOTE: the analyzed file list was truncated — say so in your comment.' || '' }}
 
             ## Critical Issues (Block Merge in Strict Mode)
             - Explicit `any` usage: `const data: any`, `as any`, function params typed as any
@@ -110,10 +175,7 @@ jobs:
             - **Current** - The problematic code
             - **Suggested** - Type-safe alternative
 
-            At the end, output machine-readable counts:
-            ```
-            ANY_COUNT: <number>
-            TOTAL_ISSUES: <number>
-            ```
+            Report the final counts in the structured output fields:
+            any_count (explicit any usages) and total_issues (all issues).
 
             Leave a PR comment with findings grouped by severity.
