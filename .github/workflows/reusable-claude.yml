@@ -32,6 +32,26 @@ on:
         type: string
         required: false
         default: 'Edit,Write,Bash(uv *),Bash(pytest *),Bash(python *),Bash(ruff *),Bash(bun *),Bash(biome *),Bash(node *),Bash(just *),Bash(pre-commit *),Bash(make *),mcp__github__get_issue,mcp__github__list_issues,mcp__github__list_issue_types,mcp__github__search_issues,mcp__github__create_issue,mcp__github__update_issue,mcp__github__add_issue_comment,mcp__github__get_issue_comments,mcp__github__add_sub_issue,mcp__github__list_sub_issues'
+      timeout_minutes:
+        description: 'Job timeout in minutes'
+        type: number
+        required: false
+        default: 45
+      additional_permissions:
+        description: 'Additional tool permissions, merged with the built-in actions:read'
+        type: string
+        required: false
+        default: ''
+      plugins:
+        description: 'Claude Code plugins to load'
+        type: string
+        required: false
+        default: ''
+      plugin_marketplaces:
+        description: 'Claude Code plugin marketplace URLs'
+        type: string
+        required: false
+        default: ''
     secrets:
       CLAUDE_CODE_OAUTH_TOKEN:
         required: true
@@ -58,6 +78,7 @@ jobs:
         (github.event_name == 'issues' && (contains(github.event.issue.body, '@claude') || contains(github.event.issue.title, '@claude')))
       )
     runs-on: ${{ inputs.runner }}
+    timeout-minutes: ${{ inputs.timeout_minutes }}
     steps:
       - name: Checkout repository
         uses: actions/checkout@v6
@@ -85,6 +106,9 @@ jobs:
             ${{ inputs.claude_args }}
           additional_permissions: |
             actions: read
+            ${{ inputs.additional_permissions }}
+          plugins: ${{ inputs.plugins }}
+          plugin_marketplaces: ${{ inputs.plugin_marketplaces }}
 
       - name: Detect failure type
         id: failure-type
