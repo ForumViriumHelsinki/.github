@@ -39,6 +39,8 @@ uses: ForumViriumHelsinki/.github/.github/workflows/<name>.yml@main
 | `runner` | string | `ubuntu-latest` | Runner label |
 | `timeout-minutes` | number | `15` | Job timeout in minutes |
 | `skip-on-release-commit` | boolean | `false` | Skip when the head commit starts with `chore(main): release` to prevent cascading releases |
+| `missed-release-check` | string | `warn` | Guard against release-please silently considering zero commits. `warn` annotates, `error` fails the job, `off` disables |
+| `releasable-types` | string | `feat,fix,perf,revert` | Comma-separated conventional-commit types the guard treats as release-worthy |
 
 Secrets:
 - `APP_PRIVATE_KEY` — GitHub App private key. Required when `app-id` is set. **Preferred — this is the org standard.**
