@@ -19,8 +19,20 @@ jobs:
         with:
           node-version: "22"
 
+      # --path .rulesync: rulesync >= 9 resolves features relative to the repo
+      # root of the source repo (GET /contents/rules), so the .rulesync/ layout
+      # must be addressed explicitly or the fetch 404s and returns zero files.
       - name: Fetch rules from .github repo
-        run: npx rulesync@latest fetch ForumViriumHelsinki/.github --features rules,ignore --conflict overwrite
+        run: npx rulesync@latest fetch ForumViriumHelsinki/.github --features rules,ignore --conflict overwrite --path .rulesync
+
+      # fetch exits 0 even when it fetches nothing, and generate then fails
+      # (or silently no-ops) — fail fast with a pointer to the rules source.
+      - name: Verify rules were fetched
+        run: |
+          [ -n "$(find .rulesync/rules -name '*.md' -print -quit 2>/dev/null)" ] || {
+            echo "::error::rulesync fetch produced no rule files — check the .rulesync/rules/ source in ForumViriumHelsinki/.github"
+            exit 1
+          }
 
       - name: Generate tool-specific files
         run: npx rulesync@latest generate
