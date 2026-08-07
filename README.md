@@ -29,6 +29,7 @@ Call these from any FVH repo using `uses: ForumViriumHelsinki/.github/.github/wo
 | `reusable-release-please.yml` | Automated releases via release-please |
 | `reusable-auto-merge-image-updater.yml` | Auto-merge ArgoCD Image Updater PRs (single-job, push-triggered) |
 | `reusable-fix-release-conflicts.yml` | Auto-resolve release-please merge conflicts |
+| `reusable-clear-autorelease-labels.yml` | Manual escape hatch: strip a stale `autorelease: pending` label from closed PRs to unclog release-please |
 | `reusable-renovate.yml` | Dependency updates via Renovate |
 | `reusable-claude.yml` | Claude Code @-mention support in issues and PRs |
 
