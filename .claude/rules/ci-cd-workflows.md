@@ -36,7 +36,7 @@ uses: ForumViriumHelsinki/.github/.github/workflows/<name>.yml@main
 | `config-file` | string | `release-please-config.json` | Path to release-please config file |
 | `manifest-file` | string | `.release-please-manifest.json` | Path to release-please manifest file |
 | `app-id` | string | `''` | GitHub App ID (**preferred**); when set, uses an App token instead of the legacy `MY_RELEASE_PLEASE_TOKEN` PAT |
-| `runner` | string | `ubuntu-latest` | Runner label |
+| `runner` | string | `ubuntu-slim` | Runner label — release-please is a pure GitHub-API job |
 | `timeout-minutes` | number | `15` | Job timeout in minutes |
 | `skip-on-release-commit` | boolean | `false` | Skip when the head commit starts with `chore(main): release` to prevent cascading releases |
 | `missed-release-check` | string | `warn` | Guard against release-please silently considering zero commits. `warn` annotates, `error` fails the job, `off` disables |
