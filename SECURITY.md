@@ -24,7 +24,7 @@ We follow coordinated disclosure. Please allow us reasonable time to investigate
 
 ## Security Practices
 
-- Dependencies are monitored for vulnerabilities via Renovate and GitHub Dependabot
+- Dependencies are monitored for vulnerabilities by GitHub Dependabot alerts, and patched by Renovate — our sole dependency-update bot, which raises prioritized security PRs from those alerts
 - Container images are scanned with Trivy on every build
 - Secrets are managed via Google Secret Manager; never committed to source
 - All production deployments go through GitOps review via ArgoCD
