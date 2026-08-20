@@ -1,6 +1,6 @@
 ---
 root: false
-targets: ["claudecode", "copilot", "geminicli", "cursor"]
+targets: ["claudecode", "copilot", "antigravity-cli", "cursor"]
 description: "GitHub issue and PR metadata standards — assignee, labels, project routing, label hygiene"
 globs: ["**/*"]
 ---

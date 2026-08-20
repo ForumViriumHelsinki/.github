@@ -1,6 +1,6 @@
 ---
 root: false
-targets: ["claudecode", "copilot", "geminicli", "cursor"]
+targets: ["claudecode", "copilot", "antigravity-cli", "cursor"]
 description: "Feature flag pattern for FVH application repos — GoFeatureFlag + OpenFeature SDK"
 globs: ["**/deploy/values.yaml", "**/deploy/**", "**/src/**", "**/.github/workflows/**"]
 ---

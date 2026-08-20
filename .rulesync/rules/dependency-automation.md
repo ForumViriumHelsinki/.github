@@ -1,6 +1,6 @@
 ---
 root: false
-targets: ["claudecode", "copilot", "geminicli", "cursor"]
+targets: ["claudecode", "copilot", "antigravity-cli", "cursor"]
 description: "Dependency automation — ArgoCD Image Updater, Renovate, release-please ownership"
 globs: ["**/renovate.json", "**/.release-please-manifest.json", "**/release-please-config.json", "**/deploy/values.yaml"]
 ---
