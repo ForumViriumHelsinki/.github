@@ -10,7 +10,7 @@ This is the ForumViriumHelsinki `.github` special repository — the org-wide hu
 
 ### Directory Layout
 
-- `.github/workflows/reusable-*.yml` — 19 reusable workflows callable via `uses: ForumViriumHelsinki/.github/.github/workflows/<name>.yml@main`
+- `.github/workflows/reusable-*.yml` — 22 reusable workflows callable via `uses: ForumViriumHelsinki/.github/.github/workflows/<name>.yml@main`
 - `.github/ISSUE_TEMPLATE/` — org-default issue templates (bug report, feature request)
 - `.github/PULL_REQUEST_TEMPLATE.md` — org-default PR template
 - `workflow-templates/` — starter workflows shown in the GitHub Actions "New workflow" UI (each has a `.yml` + `.properties.json` pair)
@@ -29,6 +29,7 @@ This is the ForumViriumHelsinki `.github` special repository — the org-wide hu
 - `reusable-fix-release-conflicts.yml` — Auto-resolves release-please merge conflicts
 - `reusable-auto-resolve-conflicts.yml` — General conflict resolution
 - `reusable-renovate.yml` — Dependency updates
+- `reusable-npm-publish.yml` — Publishes an npm package via OIDC trusted publishing (no `NPM_TOKEN`); npm version pinned, build-time env passed as `KEY=VALUE` blocks
 
 **Claude-powered (all use `anthropics/claude-code-action@v1`):**
 - `reusable-claude.yml` — @-mention support in issues/PRs

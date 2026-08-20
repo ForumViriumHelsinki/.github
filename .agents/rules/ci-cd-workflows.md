@@ -120,6 +120,55 @@ When Claude exhausts its turn budget, the workflow posts a continuation comment 
 
 The workflow also injects a `--system-prompt` instructing Claude to commit and push partial progress early for multi-step tasks.
 
+### npm Publish Workflow Inputs
+
+`reusable-npm-publish.yml` publishes an npm package via OIDC trusted publishing — no `NPM_TOKEN`. The caller's job must grant `id-token: write` and `contents: read`, and the package's trusted publisher must be configured on npmjs.com.
+
+| Input | Type | Default | Description |
+|-------|------|---------|-------------|
+| `node-version` | string | `24` | Node.js version for setup-node |
+| `npm-version` | string | `11.16.0` | Exact npm version installed before publishing. Pinned, not `latest` — see below |
+| `use-bun` | boolean | `true` | Set up Bun for bun-based install/build |
+| `install-command` | string | `bun install --frozen-lockfile` | Dependency install command |
+| `build-command` | string | `bun run build` | Build command (empty string to skip) |
+| `build-env` | string | `''` | Newline-separated `KEY=VALUE` pairs exported to the install and build steps |
+| `package-access` | string | `public` | Value for `npm publish --access` |
+| `working-directory` | string | `.` | Directory containing the package to publish |
+| `runner` | string | `ubuntu-latest` | Runner label |
+| `timeout-minutes` | number | `15` | Job timeout in minutes |
+
+Secrets:
+- `secret-build-env` — additional newline-separated `KEY=VALUE` pairs exported to the install and build steps, whose values are secrets. Values are masked in logs. Use for credentials a `build` or `postbuild` script reads.
+
+**Why `npm-version` is pinned.** Trusted publishing requires npm >= 11.5.1, so an explicit install is needed. It is pinned rather than `latest` because provenance behaviour changes between npm releases — 11.17.0 auto-attests without `--provenance`, and npm does not support provenance for private source repositories. The default `11.16.0` is the version the org's npm publisher currently runs. Public-repo callers that want auto-provenance override the input.
+
+**Why build environment is passed as `KEY=VALUE` blocks.** Packages whose `build` or `postbuild` scripts read environment variables (e.g. to bake defaults into compiled output) have no other channel — the build step is a generic `run:`. The input/secret split mirrors `build-args` / `secret-build-args` in `reusable-container-build.yml`.
+
+Example — caller with a release-please gate:
+
+```yaml
+jobs:
+  release-please:
+    uses: ForumViriumHelsinki/.github/.github/workflows/reusable-release-please.yml@main
+    with:
+      app-id: ${{ vars.CI_APP_ID }}
+    secrets:
+      APP_PRIVATE_KEY: ${{ secrets.CI_APP_PRIVATE_KEY }}
+
+  publish:
+    needs: release-please
+    if: ${{ needs.release-please.outputs.release_created == 'true' }}
+    permissions:
+      contents: read
+      id-token: write
+    uses: ForumViriumHelsinki/.github/.github/workflows/reusable-npm-publish.yml@main
+    with:
+      node-version: '24'
+    secrets:
+      secret-build-env: |
+        MY_CLIENT_ID=${{ secrets.MY_CLIENT_ID }}
+```
+
 ### Optional Workflows (Claude-Powered)
 
 | Caller Workflow | Reusable Workflow | Purpose |
