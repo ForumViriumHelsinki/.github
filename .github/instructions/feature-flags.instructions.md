@@ -48,20 +48,23 @@ externalSecret:
 
 ### 3. OpenFeature SDK (application code)
 
-Configure the GOFF provider with the evaluation key from the injected env vars:
+Install the provider from PyPI as `gofeatureflag-python-provider` (there is no `openfeature-provider-go-feature-flag` package), then configure it with the endpoint and evaluation key from the injected env vars:
 
 ```python
 import os
 from openfeature import api
-from openfeature.contrib.provider.gofeatureflag import GoFeatureFlagProvider
+from gofeatureflag_python_provider.provider import GoFeatureFlagProvider
+from gofeatureflag_python_provider.options import GoFeatureFlagOptions
 
 api.set_provider(GoFeatureFlagProvider(
-    endpoint=os.environ.get("GOFEATUREFLAG_ENDPOINT"),
-    api_key=os.environ.get("GOFF_CLIENT_ID"),
+    options=GoFeatureFlagOptions(
+        endpoint=os.environ.get("GOFEATUREFLAG_ENDPOINT"),
+        api_key=os.environ.get("GOFF_CLIENT_ID"),
+    )
 ))
 ```
 
-The OpenFeature GOFF provider handles `X-API-Key` header injection automatically.
+`GoFeatureFlagProvider` takes a single `options=` argument — passing `endpoint=` / `api_key=` as direct keyword arguments raises a pydantic validation error. The provider handles `X-API-Key` header injection automatically.
 
 ## Evaluation Key Provisioning
 
