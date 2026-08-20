@@ -130,6 +130,8 @@ The workflow also injects a `--system-prompt` instructing Claude to commit and p
 
 `reusable-npm-publish.yml` publishes an npm package via OIDC trusted publishing — no `NPM_TOKEN`. The caller's job must grant `id-token: write` and `contents: read`, and the package's trusted publisher must be configured on npmjs.com.
 
+The trusted publisher entry names the **caller's** repository and workflow filename, not this reusable workflow — npm validates the calling workflow's name, not the one containing `npm publish` ([npm docs, Trusted publishers](https://docs.npmjs.com/trusted-publishers)). Migrating an existing inline publish job onto this workflow therefore needs no npmjs.com change, provided the caller workflow's filename stays the same.
+
 | Input | Type | Default | Description |
 |-------|------|---------|-------------|
 | `node-version` | string | `24` | Node.js version for setup-node |
@@ -149,6 +151,8 @@ Secrets:
 **Why `npm-version` is pinned.** Trusted publishing requires npm >= 11.5.1, so an explicit install is needed. It is pinned rather than `latest` because provenance behaviour changes between npm releases — 11.17.0 auto-attests without `--provenance`, and npm does not support provenance for private source repositories. The default `11.16.0` is the version the org's npm publisher currently runs. Public-repo callers that want auto-provenance override the input.
 
 **Why build environment is passed as `KEY=VALUE` blocks.** Packages whose `build` or `postbuild` scripts read environment variables (e.g. to bake defaults into compiled output) have no other channel — the build step is a generic `run:`. The input/secret split mirrors `build-args` / `secret-build-args` in `reusable-container-build.yml`.
+
+Keys are validated before they reach `$GITHUB_ENV`. A line whose key is not a valid shell identifier is warned about and skipped; a key that is runner-reserved or able to change what later steps execute (`GITHUB_*`, `RUNNER_*`, `ACTIONS_*`, `PATH`, `NODE_OPTIONS`, `BASH_ENV`, `LD_PRELOAD`, `LD_LIBRARY_PATH`, `NODE_AUTH_TOKEN`, `NPM_CONFIG_*`) fails the job. `$GITHUB_ENV` is job-scoped, so these values also reach the `prepublishOnly`/`prepare` rebuild that `npm publish` triggers — check what that does to your tarball before passing build secrets.
 
 Example — caller with a release-please gate:
 

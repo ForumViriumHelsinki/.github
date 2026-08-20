@@ -3,10 +3,13 @@ name: npm Publish (Reusable)
 # Publishes an npm package via OIDC trusted publishing — no NPM_TOKEN.
 #
 # The CALLER's job must grant `id-token: write` and `contents: read`. The
-# package's trusted publisher must be configured on npmjs.com to point at the
-# publishing repository and workflow; confirm that entry before the first
-# release through this path, because npm may validate the caller workflow
-# (`workflow_ref`) or this reusable workflow (`job_workflow_ref`).
+# package's trusted publisher on npmjs.com must name the CALLER's repository
+# and the CALLER's workflow filename — not this file. npm's own docs record
+# this: "Some GitHub Actions workflows use `workflow_call` to invoke other
+# workflows that run `npm publish` ... validation checks the calling workflow's
+# name instead of the workflow that actually contains the publish command."
+# So migrating an existing inline publish job into this workflow needs no
+# npmjs.com change, as long as the caller workflow's filename does not change.
 #
 # npm version is PINNED (see the `npm-version` input). Trusted publishing
 # requires npm >= 11.5.1 and the version bundled with setup-node may be older,
@@ -153,17 +156,39 @@ jobs:
       - name: Export build environment
         # Written to $GITHUB_ENV so both install and build see it. Values are
         # never echoed; secret values remain masked by the Actions runner.
+        #
+        # $GITHUB_ENV is an execution sink: anything written here lands in the
+        # environment of every later step, including `npm publish`. Keys are
+        # therefore validated, and names that could redirect the registry or
+        # change what later steps execute are refused outright rather than
+        # warned about. The loop is fed by process substitution (not a pipe) so
+        # that refusal fails the step instead of a subshell.
         env:
           BUILD_ENV: ${{ inputs.build-env }}
           SECRET_BUILD_ENV: ${{ secrets.secret-build-env }}
         run: |
-          printf '%s\n%s\n' "$BUILD_ENV" "$SECRET_BUILD_ENV" | while IFS= read -r line; do
+          while IFS= read -r line; do
             case "$line" in
               ''|'#'*) continue ;;
-              *=*) printf '%s\n' "$line" >> "$GITHUB_ENV" ;;
-              *) echo "::warning::Ignoring malformed build-env line (expected KEY=VALUE)" ;;
+              *=*) ;;
+              *)
+                echo "::warning::Ignoring malformed build-env line (expected KEY=VALUE)"
+                continue
+                ;;
             esac
-          done
+            key=${line%%=*}
+            case "$key" in
+              GITHUB_*|RUNNER_*|ACTIONS_*|PATH|NODE_OPTIONS|BASH_ENV|LD_PRELOAD|LD_LIBRARY_PATH|NODE_AUTH_TOKEN|NPM_CONFIG_*|npm_config_*)
+                echo "::error::build-env refused '${key}': reserved by the runner, or able to change what later steps execute."
+                exit 1
+                ;;
+              ''|[0-9]*|*[!A-Za-z0-9_]*)
+                echo "::warning::Ignoring build-env line: '${key}' is not a valid environment variable name"
+                continue
+                ;;
+            esac
+            printf '%s\n' "$line" >> "$GITHUB_ENV"
+          done < <(printf '%s\n%s\n' "$BUILD_ENV" "$SECRET_BUILD_ENV")
 
       - name: Install dependencies
         env:
