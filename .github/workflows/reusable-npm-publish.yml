@@ -1,0 +1,198 @@
+name: npm Publish (Reusable)
+
+# Publishes an npm package via OIDC trusted publishing — no NPM_TOKEN.
+#
+# The CALLER's job must grant `id-token: write` and `contents: read`. The
+# package's trusted publisher must be configured on npmjs.com to point at the
+# publishing repository and workflow; confirm that entry before the first
+# release through this path, because npm may validate the caller workflow
+# (`workflow_ref`) or this reusable workflow (`job_workflow_ref`).
+#
+# npm version is PINNED (see the `npm-version` input). Trusted publishing
+# requires npm >= 11.5.1 and the version bundled with setup-node may be older,
+# so an explicit install is still needed — but `npm@latest` is a moving target
+# whose provenance behaviour changes between releases (11.17.0 auto-attests,
+# 11.16.0 does not), and npm does not support provenance for private source
+# repositories. The default 11.16.0 is the version FVH's only npm publisher
+# currently runs. Callers that want newer behaviour set the input explicitly.
+#
+# Build-time environment: `build-env` (non-secret) and the `secret-build-env`
+# secret both take newline-separated KEY=VALUE pairs and are exported to the
+# install/build steps via $GITHUB_ENV. Packages whose `build`/`postbuild`
+# scripts read environment variables (e.g. to bake defaults into compiled
+# output) must pass them here — the build step has no other channel.
+#
+# Caller example:
+#
+#   jobs:
+#     release-please:
+#       uses: ForumViriumHelsinki/.github/.github/workflows/reusable-release-please.yml@main
+#       with:
+#         app-id: ${{ vars.CI_APP_ID }}
+#       secrets:
+#         APP_PRIVATE_KEY: ${{ secrets.CI_APP_PRIVATE_KEY }}
+#
+#     publish:
+#       needs: release-please
+#       if: ${{ needs.release-please.outputs.release_created == 'true' }}
+#       permissions:
+#         contents: read
+#         id-token: write
+#       uses: ForumViriumHelsinki/.github/.github/workflows/reusable-npm-publish.yml@main
+#       with:
+#         node-version: '24'
+#       secrets:
+#         secret-build-env: |
+#           MY_CLIENT_ID=${{ secrets.MY_CLIENT_ID }}
+
+on:
+  workflow_call:
+    inputs:
+      node-version:
+        description: 'Node.js version for setup-node'
+        required: false
+        type: string
+        default: '24'
+      npm-version:
+        description: >-
+          Exact npm version to install before publishing. Trusted publishing
+          requires >= 11.5.1. Pinned rather than `latest` so an upstream npm
+          release cannot silently change provenance behaviour on a working
+          publish path.
+        required: false
+        type: string
+        default: '11.16.0'
+      use-bun:
+        description: 'Set up Bun (for bun-based install/build)'
+        required: false
+        type: boolean
+        default: true
+      install-command:
+        description: 'Dependency install command'
+        required: false
+        type: string
+        default: 'bun install --frozen-lockfile'
+      build-command:
+        description: 'Build command (empty string to skip)'
+        required: false
+        type: string
+        default: 'bun run build'
+      build-env:
+        description: >-
+          Newline-separated KEY=VALUE pairs exported to the install and build
+          steps. For non-secret build-time configuration; use the
+          `secret-build-env` secret for values that must be masked.
+        required: false
+        type: string
+        default: ''
+      package-access:
+        description: 'Value for `npm publish --access`'
+        required: false
+        type: string
+        default: 'public'
+      working-directory:
+        description: 'Directory containing the package to publish'
+        required: false
+        type: string
+        default: '.'
+      runner:
+        description: 'Runner label'
+        required: false
+        type: string
+        default: 'ubuntu-latest'
+      timeout-minutes:
+        description: 'Job timeout in minutes'
+        required: false
+        type: number
+        default: 15
+    secrets:
+      secret-build-env:
+        description: >-
+          Additional newline-separated KEY=VALUE pairs exported to the install
+          and build steps, whose values are secrets. Values are masked in logs.
+          Use for tokens or credentials a `build`/`postbuild` script reads.
+        required: false
+
+permissions:
+  contents: read
+
+jobs:
+  publish:
+    name: Publish to npm
+    runs-on: ${{ inputs.runner }}
+    timeout-minutes: ${{ inputs.timeout-minutes }}
+    permissions:
+      contents: read
+      id-token: write # OIDC token for npm trusted publishing
+    defaults:
+      run:
+        working-directory: ${{ inputs.working-directory }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+
+      - name: Set up Bun
+        if: ${{ inputs.use-bun }}
+        uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
+
+      - name: Set up Node
+        uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6.5.0
+        with:
+          node-version: ${{ inputs.node-version }}
+          registry-url: 'https://registry.npmjs.org'
+
+      - name: Pin npm for trusted publishing
+        # Trusted publishing requires npm >= 11.5.1; the bundled npm may be
+        # older. Pinned, not `latest` — see the header comment.
+        env:
+          NPM_VERSION: ${{ inputs.npm-version }}
+        run: |
+          npm install -g "npm@${NPM_VERSION}"
+          npm --version
+
+      - name: Export build environment
+        # Written to $GITHUB_ENV so both install and build see it. Values are
+        # never echoed; secret values remain masked by the Actions runner.
+        env:
+          BUILD_ENV: ${{ inputs.build-env }}
+          SECRET_BUILD_ENV: ${{ secrets.secret-build-env }}
+        run: |
+          printf '%s\n%s\n' "$BUILD_ENV" "$SECRET_BUILD_ENV" | while IFS= read -r line; do
+            case "$line" in
+              ''|'#'*) continue ;;
+              *=*) printf '%s\n' "$line" >> "$GITHUB_ENV" ;;
+              *) echo "::warning::Ignoring malformed build-env line (expected KEY=VALUE)" ;;
+            esac
+          done
+
+      - name: Install dependencies
+        env:
+          INSTALL_COMMAND: ${{ inputs.install-command }}
+        run: $INSTALL_COMMAND
+
+      - name: Build
+        if: ${{ inputs.build-command != '' }}
+        env:
+          BUILD_COMMAND: ${{ inputs.build-command }}
+        run: $BUILD_COMMAND
+
+      - name: Publish to npm (OIDC trusted publishing)
+        # No NODE_AUTH_TOKEN — npm auto-detects the OIDC environment.
+        # No --provenance: npm rejects provenance for private source repos
+        # ("Unsupported GitHub Actions source repository visibility: private").
+        env:
+          PACKAGE_ACCESS: ${{ inputs.package-access }}
+        run: npm publish --access "$PACKAGE_ACCESS"
+
+      - name: Job summary
+        if: always()
+        env:
+          NPM_VERSION: ${{ inputs.npm-version }}
+          PACKAGE_ACCESS: ${{ inputs.package-access }}
+        run: |
+          {
+            echo "## npm publish"
+            echo "- **npm**: \`$(npm --version)\` (pinned to \`${NPM_VERSION}\`)"
+            echo "- **Auth**: OIDC trusted publishing (no NPM_TOKEN)"
+            echo "- **Access**: \`${PACKAGE_ACCESS}\`"
+          } >> "$GITHUB_STEP_SUMMARY"
