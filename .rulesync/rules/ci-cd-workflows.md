@@ -75,10 +75,15 @@ secrets:
 | `config-file` | string | `renovate.json` | Path to renovate config file |
 | `log-level` | string | `info` | Renovate log level |
 | `dry-run` | string | `false` | Dry run mode (`false`, `full`, `lookup`) |
-| `app-id` | string | `''` | Renovate GitHub App ID; when set, generates an App token instead of using `GITHUB_TOKEN` |
+| `app-id` | string | `''` | Renovate GitHub App **client ID** (a numeric App ID also works; the client ID is recommended). When set, generates an App token via `APP_PRIVATE_KEY` instead of using `GITHUB_TOKEN` |
 | `bot-username` | string | `''` | `RENOVATE_USERNAME` (e.g. `fvh-renovate-bot[bot]`). Only applies when `app-id` is set. |
 | `bot-git-author` | string | `''` | `RENOVATE_GIT_AUTHOR` full author string. Only applies when `app-id` is set. |
 | `timeout-minutes` | number | `60` | Job timeout in minutes |
+| `repositories` | string | `''` | Explicit `RENOVATE_REPOSITORIES` value (space- or comma-separated `owner/repo` slugs). Overrides the default of scanning only the calling repo. Ignored when `autodiscover` is enabled. |
+| `autodiscover` | string | `'false'` | Set to `true` to autodiscover every repository the App installation can access (`RENOVATE_AUTODISCOVER`), optionally narrowed by `autodiscover-filter`. Takes precedence over `repositories`. |
+| `autodiscover-filter` | string | `''` | `RENOVATE_AUTODISCOVER_FILTER` value (e.g. `ForumViriumHelsinki/*`) scoping autodiscovery. Only applies when `autodiscover` is `true`. |
+
+When neither `autodiscover` nor `repositories` is set, the workflow scans only the calling repository.
 
 Secrets:
 - `APP_PRIVATE_KEY` — Renovate App private key. Required iff `app-id` is set.
