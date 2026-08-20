@@ -42,9 +42,9 @@ Match context to the appropriate org project. Use repository name, file paths, a
 | 2 | Reusable Workflow Migration | `project:reusable-workflows` | CI/CD workflows, `.github/workflows/`, reusable workflow adoption |
 | 3 | Template: Epic | — | Epic-level planning and tracking |
 | 4 | Gateway API Migration | `project:gateway-migration` | Gateway, ingress, networking changes |
-| 5 | TFDS | `project:tfds` | TFDS application and related services |
+| 5 | TFDS | `project:tfds` | TFDS application and related services; **SIMPL-Open / `simpl-eval` / `simpl-eval-common` / the `gke-simpl-eval` cluster** (cost code 313) |
 | 6 | Thelma | `project:thelma` | Theme, UI, design system work |
-| 7 | Application Evaluator | `project:app-evaluator` | Application evaluation tooling |
+| 7 | Application Evaluator | `project:app-evaluator` | The "Application Evaluator" tool/app specifically — **NOT `simpl-eval`** (the `eval` token is a name collision; SIMPL-Open evaluation infra is TFDS, row 5) |
 | 8 | R4C Digital Twin | `project:r4c` | R4C, Cesium, 3D visualization |
 | 9 | Platform Automation | `project:platform-automation` | Terraform, ArgoCD, platform tooling, infrastructure repo |
 | 10 | Kyverno Policies | `project:kyverno` | Security policies, admission control |

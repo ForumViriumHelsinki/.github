@@ -1,6 +1,6 @@
 ---
 root: false
-targets: ["claudecode", "copilot", "geminicli", "cursor"]
+targets: ["claudecode", "copilot", "antigravity-cli", "cursor"]
 description: "Helm deploy/values.yaml patterns for FVH helm-webapp chart"
 globs: ["**/deploy/values.yaml", "**/deploy/**"]
 ---

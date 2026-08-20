@@ -1,6 +1,6 @@
 ---
 root: false
-targets: ["claudecode", "copilot", "geminicli", "cursor"]
+targets: ["claudecode", "copilot", "antigravity-cli", "cursor"]
 description: "CI/CD workflow conventions — call org reusable workflows, no inline logic"
 globs: ["**/.github/workflows/**"]
 ---

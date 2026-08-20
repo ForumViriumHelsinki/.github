@@ -57,14 +57,14 @@ jobs:
             ## Summary
 
             - Synced AI coding rules from `ForumViriumHelsinki/.github` via rulesync
-            - Updated tool-specific config for Claude Code, Copilot, Gemini CLI, and Cursor
+            - Updated tool-specific config for Claude Code, Copilot, Antigravity CLI, and Cursor
 
             ## Test plan
 
             - [ ] Verify `.claude/rules/` files have correct `globs:` frontmatter
             - [ ] Verify `.github/copilot-instructions.md` is generated
             - [ ] Verify `.cursor/rules/` contains `.mdc` files
-            - [ ] Verify `GEMINI.md` or `.gemini/` is generated
+            - [ ] Verify `.agents/rules/` is generated
 
             🤖 Generated with rulesync
           branch: chore/sync-ai-rules

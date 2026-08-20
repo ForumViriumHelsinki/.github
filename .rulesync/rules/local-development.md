@@ -1,6 +1,6 @@
 ---
 root: false
-targets: ["claudecode", "copilot", "geminicli", "cursor"]
+targets: ["claudecode", "copilot", "antigravity-cli", "cursor"]
 description: "Local dev patterns — Skaffold profiles, justfile recipes, pre-commit hooks"
 globs:
   ["**/skaffold.yaml", "**/justfile", "**/k8s/**", "**/.pre-commit-config.yaml"]

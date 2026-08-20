@@ -1,6 +1,6 @@
 ---
 root: false
-targets: ["claudecode", "copilot", "geminicli", "cursor"]
+targets: ["claudecode", "copilot", "antigravity-cli", "cursor"]
 description: "Runtime GitHub API access via a GitHub App installation"
 globs: ["**/deploy/values.yaml", "**/deploy/**", "**/src/**"]
 ---
