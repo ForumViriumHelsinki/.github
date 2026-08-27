@@ -41,14 +41,23 @@ jobs:
       APP_PRIVATE_KEY: ${{ secrets.CI_APP_PRIVATE_KEY }}
 
   # Auto-merge ArgoCD Image Updater PRs.
-  # Single-job design: creates PR, approves, and enables auto-merge in one run
-  # to avoid GITHUB_TOKEN anti-recursion (GITHUB_TOKEN PRs don't fire pull_request events).
+  # Single-job design: creates PR, approves, and enables auto-merge in one run,
+  # since a two-job design cannot rely on a GITHUB_TOKEN-created PR triggering
+  # the second job.
+  #
+  # app-id is what keeps this unattended. Since GitHub's 2026-06-11 bot-PR
+  # change, a PR authored by github-actions[bot] has its workflow runs held in
+  # `action_required` until a human approves them, so a PR created with
+  # GITHUB_TOKEN never merges on its own. The CI App's installation token
+  # authors it instead, and the checks start by themselves.
   auto-merge:
     if: startsWith(github.ref_name, 'image-updater-')
     uses: ForumViriumHelsinki/.github/.github/workflows/reusable-auto-merge-image-updater.yml@main
     with:
       pr-title: "build: automatic update of ${{ github.event.repository.name }}"
+      app-id: ${{ vars.CI_APP_ID }}
     secrets:
+      APP_PRIVATE_KEY: ${{ secrets.CI_APP_PRIVATE_KEY }}
       AUTO_MERGE_PAT: ${{ secrets.AUTO_MERGE_PAT }}
 
   # Security scan on PRs
