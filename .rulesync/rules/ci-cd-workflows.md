@@ -40,9 +40,48 @@ uses: ForumViriumHelsinki/.github/.github/workflows/<name>.yml@main
 | `app-id` | string | `''` | GitHub App ID (**preferred**); when set, uses an App token instead of the legacy `MY_RELEASE_PLEASE_TOKEN` PAT |
 | `runner` | string | `ubuntu-slim` | Runner label — release-please is a pure GitHub-API job |
 | `timeout-minutes` | number | `15` | Job timeout in minutes |
-| `skip-on-release-commit` | boolean | `false` | Skip when the head commit starts with `chore(main): release` to prevent cascading releases |
+| `skip-on-release-commit` | boolean | `false` | **Leave unset.** Skips the job when the head commit starts with `chore(main): release` — which is the release PR's own merge commit, i.e. the run that cuts the tag and release. See the warning below |
 | `missed-release-check` | string | `warn` | Guard against release-please silently considering zero commits. `warn` annotates, `error` fails the job, `off` disables |
 | `releasable-types` | string | `feat,fix,perf,revert` | Comma-separated conventional-commit types the guard treats as release-worthy |
+
+### Do not set `skip-on-release-commit: true`
+
+It does not prevent a cascade; it prevents releases. The reusable workflow gates the whole
+job on it:
+
+```yaml
+# reusable-release-please.yml
+if: >-
+  inputs.skip-on-release-commit != true ||
+  !startsWith(github.event.head_commit.message, 'chore(main): release')
+```
+
+release-please needs **two** runs to ship a version: one on a normal commit to open the
+release PR, and one on that PR's **merge commit** to create the tag and the GitHub release.
+The merge commit's message is `chore(main): release <version>`, so the flag skips exactly the
+second run.
+
+The failure is silent. The release PR merges green, `pyproject.toml` and
+`.release-please-manifest.json` land on `main` with the new version, and there is no tag, no
+GitHub release, and therefore no container image — `container-release.yml` triggers on
+`release: published`, which never fires. The repo looks released.
+
+> Observed 2026-08-25 (`fvh-data-pipe`, its first release): PR #38 merged as `b10c96df`, the
+> release-please run on that commit reported **`skipped`**, `git ls-remote --tags` was empty,
+> and the PR sat on `autorelease: pending`. Fixed in fvh-data-pipe#41 by removing the flag.
+
+**Recovery needs no manual tagging.** release-please creates releases for merged PRs still
+labelled `autorelease: pending`, so removing the flag and pushing any commit whose message
+does not start with `chore(main): release` makes the next run pick up the stranded release PR.
+
+**Verify a release by the artifact, not the workflow badge:**
+
+```
+gh api orgs/<org>/packages/container/<repo>/versions --jq '[.[].metadata.container.tags[]]'
+```
+
+A 403 there means a missing `read:packages` scope, not a missing image — control it against a
+repo you know publishes before reading it as absence.
 
 Secrets:
 - `APP_PRIVATE_KEY` — GitHub App private key. Required when `app-id` is set. **Preferred — this is the org standard.**
