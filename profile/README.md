@@ -18,3 +18,7 @@ We work primarily with Python, TypeScript/Node.js, and Kubernetes on Google Clou
 
 - [Forum Virium Helsinki](https://forumviriumhelsinki.fi)
 - [Open Data Portal](https://hri.fi)
+
+## Security
+
+Found a security issue? See our [security policy](https://github.com/ForumViriumHelsinki/.github/blob/main/SECURITY.md) — please do not open a public issue.

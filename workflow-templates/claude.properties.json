@@ -1,6 +1,6 @@
 {
   "name": "Claude Code",
-  "description": "Enable Claude Code @-mention support in issues and PRs",
+  "description": "Enable Claude Code @-mention support in issues and PRs. Requires the `claude` topic on the repo (infrastructure github/repos.json).",
   "iconName": "octicon ai-model",
   "categories": ["Automation"]
 }

@@ -28,7 +28,7 @@ imagePullSecrets:
 ```yaml
 serviceAccount:
   annotations:
-    iam.gke.io/gcp-service-account: my-app@fvh-project.iam.gserviceaccount.com
+    iam.gke.io/gcp-service-account: my-app@fvh-project-containers-etc.iam.gserviceaccount.com
 ```
 
 ### Cloud SQL Proxy Sidecar
@@ -41,7 +41,7 @@ initContainers:
     args:
       - "--structured-logs"
       - "--auto-iam-authn"
-      - "fvh-project:europe-north1:fvh-postgres"
+      - "fvh-project-containers-etc:europe-north1:fvh-postgres"
     securityContext:
       runAsNonRoot: true
 ```
@@ -151,7 +151,7 @@ volumeMounts:
 
 ```yaml
 featureFlags:
-  enabled: true  # Injects GOFEATUREFLAG_ENDPOINT env var automatically
+  enabled: true  # Injects FEATURE_FLAG_ENDPOINT, FEATURE_FLAG_TIMEOUT, FEATURE_FLAG_REFRESH_INTERVAL
 
 env:
   - name: GOFF_CLIENT_ID
