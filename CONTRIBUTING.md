@@ -10,7 +10,7 @@ Thank you for your interest in contributing to Forum Virium Helsinki projects.
 
 ## Development Workflow
 
-1. Fork the repository and create a feature branch from `main`
+1. If you have write access (Forum Virium Helsinki staff), create a feature branch in the repository itself. Otherwise, fork the repository and branch from `main`
 2. Make your changes following the project's coding conventions
 3. Write or update tests as appropriate
 4. Ensure all tests pass and linting is clean
@@ -32,12 +32,20 @@ Types: `feat`, `fix`, `docs`, `style`, `refactor`, `test`, `chore`, `ci`, `perf`
 
 Breaking changes: add `!` after the type or include `BREAKING CHANGE:` in the footer.
 
+Organization members: CI/CD is built from the [reusable workflows in this repository](https://github.com/ForumViriumHelsinki/.github#reusable-workflows); internal developer docs are linked from the members-only view of the [organization page](https://github.com/ForumViriumHelsinki).
+
 ## Pull Requests
 
 - Keep PRs focused on a single change
 - Reference related issues in the PR description
 - Respond to review feedback promptly
 - Squash fixup commits before merge
+
+## Code Review and Merging
+
+Default branches are protected by two rulesets: an organization baseline that blocks branch deletion and force-push, and a per-repository ruleset managed in Terraform that requires changes to land through a pull request and keeps history linear. Merges are squash or rebase only — merge commits are disabled in the repository settings.
+
+Approving reviews are not enforced by those rulesets: the Terraform module default is `required_approving_review_count = 0` and no repository overrides it, and no CODEOWNERS file assigns a reviewer automatically. The Claude-powered review workflows are not required status checks and do not submit approving reviews. Required status checks are configured per repository.
 
 ## Reporting Issues
 

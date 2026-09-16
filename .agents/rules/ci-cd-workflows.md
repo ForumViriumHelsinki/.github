@@ -17,11 +17,18 @@ uses: ForumViriumHelsinki/.github/.github/workflows/<name>.yml@main
 | Caller Workflow | Reusable Workflow | Trigger | Auth |
 |----------------|-------------------|---------|------|
 | `release-please.yml` | `reusable-release-please.yml` | Push to `main` | `app-id` + `APP_PRIVATE_KEY` (preferred) or `MY_RELEASE_PLEASE_TOKEN` (PAT, legacy) |
-| `renovate.yml` | `reusable-renovate.yml` | Schedule | `GITHUB_TOKEN` or `app-id` + `APP_PRIVATE_KEY` |
 | `container-build.yml` | `reusable-container-build.yml` | release-please PR (PR phase) | — |
 | `container-release.yml` | `reusable-container-release.yml` | Published release (release phase) | — |
 | `auto-merge-image-updater.yml` | `reusable-auto-merge-image-updater.yml` | `image-updater-**` branches | `AUTO_MERGE_PAT` or `app-id` + `APP_PRIVATE_KEY` |
-| `claude.yml` | `reusable-claude.yml` | Issue/PR @-mentions | `CLAUDE_CODE_OAUTH_TOKEN` |
+| `claude.yml` | `reusable-claude.yml` | Issue/PR @-mentions | `CLAUDE_CODE_OAUTH_TOKEN` (org secret; requires the `claude` topic in infrastructure `github/repos.json`) |
+
+**Renovate is not a per-repo workflow.** It runs centrally from the infrastructure repo's `.github/workflows/renovate.yml`, which autodiscovers every `ForumViriumHelsinki/*` repository (infrastructure ADR-0036). Application repos may carry only a `renovate.json`; see dependency-automation.md.
+
+**The Claude token is granted by repository topic.** `CLAUDE_CODE_OAUTH_TOKEN` is an organization secret delivered only to repositories carrying the `claude` topic in the infrastructure repo's `github/repos.json` (the selected-repository list is built from that file in `github/secrets_claude.tf`). This applies to every Claude-powered caller: `claude.yml`, `claude-review.yml`, and the `security-*` / `quality-*` / `a11y-*` workflows listed below. Three consequences:
+
+- Terraform owns repository topics, so adding the topic in the GitHub UI neither grants the secret nor survives the next `infrastructure-github` apply; the secret reaches the repo only after that apply runs.
+- Do not create a repository-level secret of the same name. It takes precedence over the organization secret and is not rotated with it.
+- A repo with a caller but no grant fails with `Either ANTHROPIC_API_KEY, CLAUDE_CODE_OAUTH_TOKEN ... is required`. In `reusable-claude.yml` (@-mention) that step runs with `continue-on-error: true`, so the failure need not turn the job red.
 
 ### Release-Please Workflow Inputs
 
@@ -99,9 +106,9 @@ secrets:
   MY_RELEASE_PLEASE_TOKEN: ${{ secrets.MY_RELEASE_PLEASE_TOKEN }}
 ```
 
-### Renovate Workflow Inputs
+### Renovate Workflow Inputs (central infrastructure caller only)
 
-`reusable-renovate.yml` accepts these inputs:
+`reusable-renovate.yml` accepts these inputs. Only the infrastructure repo calls it (ADR-0036); an application repo has no caller to configure.
 
 | Input | Type | Default | Description |
 |-------|------|---------|-------------|
@@ -129,6 +136,8 @@ with:
   app-id: ${{ vars.RENOVATE_APP_ID }}
   bot-username: fvh-renovate-bot[bot]
   bot-git-author: fvh-renovate-bot <fvh-renovate-bot[bot]@users.noreply.github.com>
+  autodiscover: 'true'
+  autodiscover-filter: 'ForumViriumHelsinki/*'
 secrets:
   APP_PRIVATE_KEY: ${{ secrets.RENOVATE_APP_PRIVATE_KEY }}
 ```
@@ -235,7 +244,8 @@ jobs:
 When opening, editing, or reviewing a workflow file in any FVH application repo, briefly scan the rest of `.github/workflows/` and surface adoption gaps:
 
 - Inline build/release/security/quality logic that duplicates a reusable workflow → propose migrating to `uses: ForumViriumHelsinki/.github/...`.
-- Missing standard workflows for a deployed application (release-please, renovate, container build/release, image-updater auto-merge, claude).
+- Missing standard workflows for a deployed application (release-please, container build/release, image-updater auto-merge, claude).
+- A per-repo `renovate.yml` in an application repo → propose removing it (ADR-0036).
 - Pinned `@<sha>` / `@v1` references to reusable workflows — confirm they are intentional vs. drift from `@main`.
 
 Surface findings in the response — do not silently rewrite unrelated workflow files. Migration to reusable workflows is a deliberate change. Workspace-wide adoption status is also visible via `just fvh::workflow-matrix` from the workspace root.

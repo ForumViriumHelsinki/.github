@@ -14,7 +14,15 @@ We build open-source tools for urban mobility, IoT data platforms, real-time pub
 
 We work primarily with Python, TypeScript/Node.js, and Kubernetes on Google Cloud Platform. Our infrastructure is managed with Terraform and deployed via ArgoCD.
 
+## Joining us as a developer
+
+[DEVELOPERS.md](https://github.com/ForumViriumHelsinki/.github/blob/main/DEVELOPERS.md) covers how we work, what to read first, and which accounts you will need — readable before you have any.
+
 ## Links
 
 - [Forum Virium Helsinki](https://forumviriumhelsinki.fi)
 - [Open Data Portal](https://hri.fi)
+
+## Security
+
+Found a security issue? See our [security policy](https://github.com/ForumViriumHelsinki/.github/blob/main/SECURITY.md) — please do not open a public issue.

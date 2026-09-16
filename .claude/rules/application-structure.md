@@ -33,14 +33,17 @@ Application repos must include the files below for consistent deployment, automa
 
 ## Dockerfile Requirements
 
-### Kyverno Security Policy Compliance
+### Kyverno Policy Reports
 
-All containers deployed to FVH's GKE Autopilot cluster must pass Kyverno policy validation:
+The platform cluster runs Kyverno validation policies in **Audit** mode: violations appear in PolicyReports and do not block deploys. Keep workloads clean against them:
 
-- `runAsNonRoot: true` — Dockerfile must create and switch to a non-root user
-- `readOnlyRootFilesystem: true` — writable directories use `emptyDir` volumes in Helm values
-- `allowPrivilegeEscalation: false` — set in `securityContext` in Helm values
-- `capabilities.drop: [ALL]` — set in `securityContext` in Helm values
+- `readOnlyRootFilesystem: true` — writable directories use `emptyDir` volumes in Helm values (`require-ro-rootfs`)
+- `allowPrivilegeEscalation: false` — set in `securityContext` in Helm values (`disallow-privilege-escalation`)
+- CPU and memory requests and limits on every container (`require-resource-limits`)
+- `app.kubernetes.io/name` and `app.kubernetes.io/instance` labels on pods (`require-labels`)
+- No `:latest` or untagged images (`disallow-latest-tag`)
+
+Also recommended as hardening, though no Kyverno policy checks them: a non-root user in the Dockerfile (`runAsNonRoot: true`) and `capabilities.drop: [ALL]` in `securityContext`. Policy list: `@infrastructure/docs/KYVERNO.md`.
 
 ### Frontend Archetype (Node/Bun build -> nginx)
 

@@ -31,7 +31,7 @@ env:
         key: GOFF_CLIENT_ID
 ```
 
-Setting `featureFlags.enabled: true` in `helm-webapp` values automatically injects the `GOFEATUREFLAG_ENDPOINT` environment variable pointing to the internal relay proxy.
+Setting `featureFlags.enabled: true` in `helm-webapp` values automatically injects `FEATURE_FLAG_ENDPOINT` (pointing to the internal relay proxy), plus `FEATURE_FLAG_TIMEOUT` and `FEATURE_FLAG_REFRESH_INTERVAL`.
 
 ### 2. ExternalSecret for the evaluation key
 
@@ -42,7 +42,7 @@ externalSecret:
   data:
     - secretKey: GOFF_CLIENT_ID
       remoteRef:
-        key: my-app-goff_client_id  # Provisioned in infrastructure repo
+        key: my_app_goff_client_id  # <app>_goff_client_id (hyphens → underscores), provisioned in infrastructure gcp/*_secrets.tf
 ```
 
 ### 3. OpenFeature SDK (application code)
@@ -57,7 +57,7 @@ from gofeatureflag_python_provider.options import GoFeatureFlagOptions
 
 api.set_provider(GoFeatureFlagProvider(
     options=GoFeatureFlagOptions(
-        endpoint=os.environ.get("GOFEATUREFLAG_ENDPOINT"),
+        endpoint=os.environ.get("FEATURE_FLAG_ENDPOINT"),
         api_key=os.environ.get("GOFF_CLIENT_ID"),
     )
 ))

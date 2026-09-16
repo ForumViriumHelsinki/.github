@@ -1,6 +1,6 @@
 {
   "name": "Auto-fix Workflow Failures",
-  "description": "Uses Claude Code to analyze and auto-fix CI failures, or open issues for manual intervention",
+  "description": "Uses Claude Code to analyze and auto-fix CI failures, or open issues for manual intervention. Requires the `claude` topic on the repo (infrastructure github/repos.json).",
   "iconName": "octicon tools",
   "categories": ["Continuous integration", "Automation"]
 }

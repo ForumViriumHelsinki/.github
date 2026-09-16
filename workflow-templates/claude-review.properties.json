@@ -1,6 +1,6 @@
 {
   "name": "Claude Code Review",
-  "description": "Automated PR review using Claude Code for code quality, bugs, security, and test coverage",
+  "description": "Automated PR review using Claude Code for code quality, bugs, security, and test coverage. Requires the `claude` topic on the repo (infrastructure github/repos.json).",
   "iconName": "octicon code-review",
   "categories": ["Continuous integration", "Code review"]
 }
