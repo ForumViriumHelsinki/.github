@@ -34,8 +34,13 @@ jobs:
             exit 1
           }
 
+      # Explicit targets/features: fetch pulls only .rulesync/, never
+      # rulesync.jsonc, and with no config the default is the agentsmd target
+      # alone, which writes zero files for these rules at exit 0. Keep both
+      # lists equal to this repo's rulesync.jsonc (pinned by
+      # .github/tests/sync-ai-rules-targets/run.sh).
       - name: Generate tool-specific files
-        run: npx rulesync@latest generate
+        run: npx rulesync@latest generate --targets claudecode,copilot,antigravity-cli,cursor --features rules,ignore
 
       - name: Check for changes
         id: changes
@@ -62,9 +67,10 @@ jobs:
             ## Test plan
 
             - [ ] Verify `.claude/rules/` files have correct `globs:` frontmatter
-            - [ ] Verify `.github/copilot-instructions.md` is generated
+            - [ ] Verify `.github/instructions/` contains `.instructions.md` files
             - [ ] Verify `.cursor/rules/` contains `.mdc` files
-            - [ ] Verify `.agents/rules/` is generated
+            - [ ] Verify `.agents/rules/` and `.geminiignore` are generated
+            - [ ] Verify the `permissions.deny` block in `.claude/settings.json` still holds any entries this repo added
 
             🤖 Generated with rulesync
           branch: chore/sync-ai-rules
