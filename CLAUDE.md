@@ -81,6 +81,8 @@ To validate generated files are in sync (CI):
 npx rulesync@latest generate --check
 ```
 
+Edit `.rulesync/rules/*.md` directly, then run `generate` and `generate --check`, and commit the source change and its regenerated copies in one commit. `.rulesync/.aiignore` deliberately does not list `.rulesync/` or `rulesync.jsonc`: every line there becomes a `Read(...)` deny in `.claude/settings.json`, which also blocks Edit, Write and path-naming Bash commands, and Claude Code auto-loads only CLAUDE.md files, `.claude/rules/` and `@` imports ([memory docs](https://code.claude.com/docs/en/memory)), so the sources are never loaded twice. Generation replaces every `Read(...)` deny in `.claude/settings.json` with the `.aiignore` set, so add ignore patterns to `.aiignore`, not to `settings.json`.
+
 ## Testing Workflows
 
 There is no local test suite. Workflow changes are validated by:

@@ -190,9 +190,11 @@ npx rulesync@latest generate
 
 `--path .rulesync` is required: rulesync 9 and later resolve features against the source repo's root, so without it the fetch looks for `rules/` at the top level, 404s, and returns zero files at exit 0.
 
-### The generated deny block hides the sources from Claude
+### The generated deny block
 
-`.rulesync/.aiignore` lists `.rulesync/` and `rulesync.jsonc`, so the generated `.claude/settings.json` denies `Read` on both. In a Claude Code session the rule sources and the config read as permission errors rather than as missing files; inspect them through `git show HEAD:.rulesync/rules/<file>.md` instead. Generation merges that `deny` block into an existing `.claude/settings.json` and leaves the rest of the file — `allow`, `enabledPlugins`, everything else — untouched.
+Each line of `.rulesync/.aiignore` becomes a `Read(...)` entry in the `permissions.deny` block of the generated `.claude/settings.json`, and a line in `.geminiignore` and `.cursorignore`. The file lists `rulesync.local.jsonc`, `rulesync.lock` and `node_modules/`: untracked, machine-local paths. It does not list `.rulesync/` or `rulesync.jsonc`, because a Claude Code `Read` deny also blocks Edit, Write and Bash commands that name the path ([permissions docs](https://code.claude.com/docs/en/permissions)), which would make the rule sources and the config uneditable in a Claude Code session. Claude Code does not auto-load `.rulesync/`, so the sources are not read twice; Cursor and Antigravity CLI index them as ordinary files.
+
+Generation replaces every `Read(...)` deny in an existing `.claude/settings.json` with the `.aiignore` set and leaves the rest of the file — non-`Read` denies, `allow`, `enabledPlugins`, everything else — untouched. A `Read(...)` deny added to `settings.json` by hand is dropped on the next `generate`; add the pattern to `.aiignore` instead. A consuming repo that fetches `--features rules,ignore` receives this `.aiignore` too, so the same replacement applies to its `settings.json`.
 
 ## Container Signing
 
