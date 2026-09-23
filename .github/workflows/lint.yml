@@ -1,0 +1,56 @@
+name: Lint
+
+# Every FVH repo calls the reusable workflows here at `@main`, so a broken file
+# on main breaks its callers on their next run. This job is the gate in front of
+# main: YAML validity, actionlint, rulesync drift, and the tests under
+# .github/tests/. `just lint` and `just test` run the same commands locally.
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  lint:
+    # ubuntu-slim ships bash, Node/npm, python3, git, curl and yq (see
+    # actions/runner-images images/ubuntu-slim/ubuntu-slim-Readme.md) but no
+    # Docker daemon and no PyYAML. Hence yq for YAML, the actionlint release
+    # binary instead of its Docker action, and python3 stdlib only in tests.
+    runs-on: ubuntu-slim
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          persist-credentials: false
+
+      - name: Validate YAML
+        run: |
+          set -euo pipefail
+          for f in .github/workflows/*.yml workflow-templates/*.yml; do
+            yq -e 'tag == "!!map"' "$f" >/dev/null || { echo "::error file=$f::not a YAML mapping"; exit 1; }
+          done
+          echo "All workflow and template files are valid YAML."
+
+      - name: actionlint
+        env:
+          ACTIONLINT_VERSION: '1.7.12'
+          ACTIONLINT_SHA256: '8aca8db96f1b94770f1b0d72b6dddcb1ebb8123cb3712530b08cc387b349a3d8'
+        run: |
+          set -euo pipefail
+          curl -fsSL -o /tmp/actionlint.tgz "https://github.com/rhysd/actionlint/releases/download/v${ACTIONLINT_VERSION}/actionlint_${ACTIONLINT_VERSION}_linux_amd64.tar.gz"
+          echo "${ACTIONLINT_SHA256}  /tmp/actionlint.tgz" | sha256sum -c -
+          tar -xzf /tmp/actionlint.tgz -C /tmp actionlint
+          # -shellcheck= matches `just lint`: shellcheck's style findings on
+          # run: bodies are accepted pre-existing noise; expressions, action
+          # inputs and workflow structure are still checked.
+          /tmp/actionlint -shellcheck= -oneline .github/workflows/*.yml workflow-templates/*.yml
+
+      - name: rulesync generated files are current
+        run: npx --yes rulesync@latest generate --check
+
+      - name: Workflow tests
+        run: bash .github/tests/run.sh
