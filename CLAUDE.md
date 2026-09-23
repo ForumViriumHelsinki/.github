@@ -55,6 +55,7 @@ Release images are signed with cosign keyless (Sigstore OIDC) and scanned with T
 - **Action pinning**: All third-party actions are pinned to full SHA with a version comment (e.g., `actions/checkout@<sha> # v6.0.2`). Renovate manages these pins.
 - **Concurrency groups**: Claude-powered workflows use `cancel-in-progress: false` to avoid interrupting AI analysis.
 - **Auto-fix loop prevention**: The auto-fix workflow skips if a recent `fix(auto):` commit exists on the branch.
+- **`additional_permissions` is a permissions map, not a tool list**: `anthropics/claude-code-action` reads it as `key: value` lines (`actions: read`) for its App token and skips any line without a colon, so a Claude tool list there is silently inert. Tools go in an `allowed_tools` input composed into `claude_args` as `--allowedTools "..."` (repeated `--allowedTools` flags accumulate). The `github_ci` MCP server checks the job's `GITHUB_TOKEN`, so a workflow that runs in tag mode (`track_progress: true`, or no `prompt`) needs `actions: read` in its `permissions:` block; `additional_permissions` cannot substitute. `.github/tests/claude-action-permissions/run.sh` checks both rules.
 
 ## Conventions
 
