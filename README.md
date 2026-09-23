@@ -75,6 +75,12 @@ Call these from any FVH repo using `uses: ForumViriumHelsinki/.github/.github/wo
 | `reusable-a11y-aria.yml` | ARIA pattern correctness |
 | `reusable-a11y-wcag.yml` | WCAG 2.1 compliance check |
 
+### Where the Security, Quality and Accessibility findings appear
+
+These eight workflows never post a PR comment; Claude is granted no GitHub write tool. Each finding goes to the run's **job summary** and to a **file annotation** on the PR's Files changed tab (error level for the workflow's blocking severities, warning otherwise). GitHub shows at most 10 annotations per level per step, so the job summary is the complete list. A run that analysed nothing (no changed file matched, or the diff exceeded `max-diff-lines`) says so in its summary, so its green check does not read as a clean scan.
+
+A run in which Claude finishes but returns no structured output ends green with a warning that there is no verdict; re-run it to get one. The job goes red when the analysis itself failed (an API error, the `max-turns` limit, or the `max-budget-usd` ceiling, which defaults to 5 USD), and, when enabled, on blocking findings: `reusable-security-owasp.yml` with `fail-on-critical` (default `true`) and `reusable-security-deps.yml` with `fail-on-high` (default `false`) fail when a blocking finding is itemised or the reported count of them is above zero.
+
 ## Usage Example
 
 The container workflows use a **build-once/promote** pattern: images are built during the release-please PR and promoted (manifest-only retag) on tag push — no redundant rebuilds.
