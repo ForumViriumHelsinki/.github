@@ -5,7 +5,12 @@
 # Source of truth: `.on.workflow_call` in .github/workflows/reusable-*.yml,
 # read with yq (ubuntu-slim ships yq; it does not ship PyYAML).
 # Documentation under test: the rulesync source of the CI/CD rule. The four
-# generated copies are covered by `npx rulesync generate --check`.
+# generated copies are covered by `npx rulesync generate --check`, which no CI
+# workflow in this repo runs yet; until one does, a hand edit to a generated
+# copy is not caught.
+#
+# Only names, types and defaults are checked. Prose describing a value (e.g.
+# what an output holds when it is not set) is not.
 #
 # For every `### <Name> Workflow Inputs` section (mapped to its workflow file by
 # SECTION_MAP below) the test asserts:
