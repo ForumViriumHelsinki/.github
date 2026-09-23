@@ -94,6 +94,6 @@ npx rulesync@latest generate --check
 Workflow changes are validated by:
 
 1. `actionlint` for static analysis of workflow syntax
-2. Regression tests under `.github/tests/<name>/run.sh`, each self-contained (`bash .github/tests/<name>/run.sh`, needs `jq` and `yq`) and printing `PASS: <name>`. For the Claude analysis workflows: `publish-drift` (wraps `scripts/check-publish-drift.sh 8`), `publish-findings` and `analysis-verdict`, which run fixtures against the step bodies extracted from every workflow that passes `--json-schema`
+2. Regression tests under `.github/tests/<name>/run.sh`, each self-contained (`bash .github/tests/<name>/run.sh`, needs `jq` and `yq`) and printing `PASS: <name>`. For the Claude analysis workflows: `publish-drift` (wraps `scripts/check-publish-drift.sh 8`), `publish-findings` and `analysis-verdict`, which run fixtures against the step bodies extracted from every workflow that passes `--json-schema`, and `analysis-contract`, which checks the same workflows' schema (`findings` required), prompt (no "Leave a PR comment"), job outputs and numeric union gates
 3. Testing in a calling repo by pointing `@main` to a feature branch temporarily, or using a workflow dispatch
 4. Reviewing GitHub Actions run logs after merge
