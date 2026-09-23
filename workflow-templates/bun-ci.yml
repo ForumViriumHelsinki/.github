@@ -1,0 +1,32 @@
+name: Bun CI
+
+on:
+  pull_request:
+    branches: [$default-branch]
+  push:
+    branches: [$default-branch]
+
+permissions:
+  contents: read
+
+# No workflow-level `concurrency:` here: the reusable workflow sets its own
+# job-level group (prefixed `bun-ci-`). If you add one, do not reuse that
+# group — a called workflow sees this workflow's name in `github.workflow`, and
+# equal groups make the run cancel itself.
+
+jobs:
+  bun-ci:
+    uses: ForumViriumHelsinki/.github/.github/workflows/reusable-bun-ci.yml@main
+    # Uncomment to customize (defaults shown):
+    # with:
+    #   install-command: bun install --frozen-lockfile
+    #   typecheck-command: ''        # opt-in, e.g. bunx tsc --noEmit
+    #   test-command: bun run test   # '' skips
+    #   build-command: bun run build # '' skips; e.g. bunx wxt build --mode development
+    #   coverage: false              # true uploads <working-directory>/coverage/
+    #   bun-version: ''              # '' reads package.json packageManager, else latest
+    #   node-version: ''             # '' skips setup-node
+    #   cache-dependencies: true
+    #   working-directory: .
+    #   runner: ubuntu-latest
+    #   timeout-minutes: 15

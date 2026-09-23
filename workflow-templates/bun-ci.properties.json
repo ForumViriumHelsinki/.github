@@ -1,0 +1,7 @@
+{
+  "name": "Bun CI",
+  "description": "Install from bun.lock, then run the repository's own typecheck, test and build commands on every pull request. No secrets.",
+  "iconName": "octicon beaker",
+  "categories": ["Continuous integration", "JavaScript", "TypeScript"],
+  "filePatterns": ["^bun\\.lock$"]
+}

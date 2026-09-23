@@ -10,7 +10,7 @@ This is the ForumViriumHelsinki `.github` special repository — the org-wide hu
 
 ### Directory Layout
 
-- `.github/workflows/reusable-*.yml` — 22 reusable workflows callable via `uses: ForumViriumHelsinki/.github/.github/workflows/<name>.yml@main`
+- `.github/workflows/reusable-*.yml` — 23 reusable workflows callable via `uses: ForumViriumHelsinki/.github/.github/workflows/<name>.yml@main`
 - `.github/workflows/lint.yml`, `.github/tests/`, `justfile` — this repo's own lint gate and workflow tests (see [Testing Workflows](#testing-workflows))
 - `.github/ISSUE_TEMPLATE/` — org-default issue templates (bug report, feature request)
 - `.github/PULL_REQUEST_TEMPLATE.md` — org-default PR template
@@ -31,6 +31,7 @@ This is the ForumViriumHelsinki `.github` special repository — the org-wide hu
 - `reusable-auto-resolve-conflicts.yml` — General conflict resolution
 - `reusable-renovate.yml` — Dependency updates
 - `reusable-npm-publish.yml` — Publishes an npm package via OIDC trusted publishing (no `NPM_TOKEN`); npm version pinned, build-time env passed as `KEY=VALUE` blocks
+- `reusable-bun-ci.yml` — Pull-request gate for bun/TypeScript repos: frozen-lockfile install, then the repo's own typecheck (opt-in), test and build commands; optional coverage artifact; no secrets
 
 **Claude-powered (all use `anthropics/claude-code-action@v1`):**
 - `reusable-claude.yml` — @-mention support in issues/PRs

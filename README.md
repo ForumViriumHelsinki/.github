@@ -36,6 +36,7 @@ Call these from any FVH repo using `uses: ForumViriumHelsinki/.github/.github/wo
 | `reusable-renovate.yml` | Dependency updates via Renovate — called centrally from the infrastructure repo only; application repos must not call it |
 | `reusable-enforce-conventional-commits.yml` | Auto-fix PR titles to conventional-commit format (github-script, no AI) |
 | `reusable-npm-publish.yml` | Publish an npm package via OIDC trusted publishing (no `NPM_TOKEN`; the caller's job grants `id-token: write`) |
+| `reusable-bun-ci.yml` | Pull-request gate for bun/TypeScript repos: `bun install --frozen-lockfile`, then the repo's own typecheck (opt-in), test and build commands; optional coverage artifact; no secrets |
 | `reusable-claude.yml` | Claude Code @-mention support in issues and PRs |
 
 ### Automation (Claude-powered)
