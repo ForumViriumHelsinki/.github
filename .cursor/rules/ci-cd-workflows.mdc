@@ -261,6 +261,7 @@ Container workflows use a two-phase pattern:
 
 1. **PR phase** (`reusable-container-build.yml`): Builds `:next-{version}` pre-release image during release-please PR
 2. **Release phase** (`reusable-container-release.yml`): Promotes pre-built image to semver tags via manifest-only retag (seconds, not minutes) + runs Trivy scan
+   - Image tags derive from the version left after stripping `tag-prefix`; a `tag-prefix` that does not prefix the release tag fails the run
 3. Fallback rebuild if pre-built image is not found
 
 ## GitHub Actions Constraints

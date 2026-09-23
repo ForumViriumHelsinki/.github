@@ -115,6 +115,8 @@ jobs:
 
 `CLAUDE_CODE_OAUTH_TOKEN` is an organization secret granted only to repositories that carry the `claude` topic. A Claude-powered caller in a repository without that topic gets no token and fails.
 
+`tag-prefix` must prefix every release tag the caller triggers on: the release workflow strips it and derives all image tags from what remains (`my-app-v1.2.3` → `1.2.3`, `1.2`, `1`, `latest`; a pre-release such as `my-app-v1.2.3-rc.1` → `1.2.3-rc.1` only). A tag the prefix does not match fails the run with an `::error::`.
+
 ## AI Coding Rules — syncing with rulesync
 
 The org's coding rules for AI assistants live in `.rulesync/rules/*.md` in this repository, one Markdown file per topic with YAML frontmatter naming its `targets` and path `globs`. [rulesync](https://github.com/dyoshikawa/rulesync) compiles those sources into the per-tool formats each assistant reads. Every other directory of rules — here and in consuming repos — is generated output and must not be edited by hand.
