@@ -48,8 +48,12 @@ name: Bun CI (Reusable)
 # with a `bun-ci-` prefix so the group never equals the caller's own
 # `${{ github.workflow }}-${{ github.ref }}` group (a called workflow sees the
 # caller's `github.workflow`; equal groups cancel the caller). In-progress runs
-# are cancelled on pull requests only, so every push to the default branch
-# keeps its result.
+# are cancelled on pull requests only, so a running default-branch job is never
+# cancelled. Pending jobs are a different matter: with the default
+# `queue: single`, a newer job replaces any job already pending in the group, so
+# after three quick pushes to the default branch the first and third run and the
+# second is cancelled. `queue: max` would keep every pending job, but actionlint
+# 1.7.12 rejects the key, so it is not set here.
 #
 # Caller example:
 #

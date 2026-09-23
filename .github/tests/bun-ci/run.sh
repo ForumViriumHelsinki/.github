@@ -128,6 +128,34 @@ setup_bun='.jobs[].steps[] | select(.uses // "" | test("^oven-sh/setup-bun@"))'
 expect_eq "setup-bun bun-version passthrough" '${{ inputs.bun-version }}' "$(wf "$setup_bun | .with[\"bun-version\"]")"
 expect_eq "setup-bun gets no bun-version-file (warns on every run without packageManager)" false "$(wf "$setup_bun | .with | has(\"bun-version-file\")")"
 
+# Documented concurrency: cancel in-progress runs on pull requests only.
+expect_eq "cancel-in-progress only on pull_request" \
+  "\${{ github.event_name == 'pull_request' }}" "$(wf '.jobs[].concurrency["cancel-in-progress"]')"
+
+# The uses: steps are not executed in Part 3, so their with: blocks and if:
+# guards are pinned here. The coverage path and cache key carry the
+# working-directory prefix because uses: steps ignore defaults.run.
+setup_node='.jobs[].steps[] | select(.uses // "" | test("^actions/setup-node@"))'
+expect_eq "setup-node only when node-version is set" \
+  "\${{ inputs.node-version != '' }}" "$(wf "$setup_node | .if")"
+expect_eq "setup-node node-version passthrough" '${{ inputs.node-version }}' "$(wf "$setup_node | .with[\"node-version\"]")"
+
+cache='.jobs[].steps[] | select(.uses // "" | test("^actions/cache@"))'
+expect_eq "cache only when cache-dependencies is true" '${{ inputs.cache-dependencies }}' "$(wf "$cache | .if")"
+expect_eq "cache path is bun's install cache" '~/.bun/install/cache' "$(wf "$cache | .with.path")"
+expect_eq "cache key hashes <working-directory>/bun.lock" \
+  "bun-install-\${{ runner.os }}-\${{ hashFiles(format('{0}/bun.lock', inputs.working-directory)) }}" \
+  "$(wf "$cache | .with.key")"
+
+coverage='.jobs[].steps[] | select(.id == "coverage")'
+expect_eq "coverage step is upload-artifact" true "$(wf "$coverage | .uses | test(\"^actions/upload-artifact@\")")"
+expect_eq "coverage only when coverage is true" '${{ inputs.coverage }}' "$(wf "$coverage | .if")"
+expect_eq "coverage artifact name" coverage "$(wf "$coverage | .with.name")"
+expect_eq "coverage path is <working-directory>/coverage/" \
+  '${{ inputs.working-directory }}/coverage/' "$(wf "$coverage | .with.path")"
+expect_eq "coverage fails when no files are found" error "$(wf "$coverage | .with[\"if-no-files-found\"]")"
+expect_eq "coverage retention" 30 "$(wf "$coverage | .with[\"retention-days\"]")"
+
 # An empty optional command skips its step rather than running a no-op eval,
 # so the run page and step outcomes show it as skipped.
 for step in typecheck test build; do
