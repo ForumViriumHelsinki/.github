@@ -13,10 +13,13 @@ default:
 lint:
     #!/usr/bin/env bash
     set -euo pipefail
-    for f in .github/workflows/*.yml workflow-templates/*.yml; do
+    shopt -s nullglob
+    files=(.github/workflows/*.yml .github/workflows/*.yaml workflow-templates/*.yml workflow-templates/*.yaml)
+    [ "${#files[@]}" -gt 0 ] || { echo "no workflow or template files found"; exit 1; }
+    for f in "${files[@]}"; do
         yq -e 'tag == "!!map"' "$f" >/dev/null || { echo "INVALID YAML: $f"; exit 1; }
     done
-    echo "All workflow and template files are valid YAML."
+    echo "All ${#files[@]} workflow and template files are valid YAML."
     if command -v mise >/dev/null 2>&1; then
         al=(mise exec "aqua:rhysd/actionlint@{{ actionlint_version }}" -- actionlint)
     elif command -v actionlint >/dev/null 2>&1; then
@@ -25,7 +28,7 @@ lint:
         echo "actionlint not found: install mise or actionlint {{ actionlint_version }}" >&2
         exit 1
     fi
-    "${al[@]}" -shellcheck= -oneline .github/workflows/*.yml workflow-templates/*.yml
+    "${al[@]}" -shellcheck= -oneline "${files[@]}"
     echo "actionlint: clean"
     npx --yes rulesync@latest generate --check
 

@@ -1,15 +1,19 @@
 #!/usr/bin/env bash
 # Contract test for what this repo ships to other FVH repos.
 #
-#   1. Every .github/workflows/reusable-*.yml is callable (`on` includes
-#      workflow_call) and declares a top-level `permissions:` map, so a caller
-#      never hands it more token scope than it asked for.
+#   1. Every .github/workflows/reusable-*.{yml,yaml} is callable (`on`
+#      includes workflow_call) and declares a top-level `permissions:` map, so
+#      a caller never hands it more token scope than it asked for. GitHub
+#      accepts both extensions for workflow files, so both are scanned.
 #   2. Every workflow-templates/<name>.yml has a <name>.properties.json that
 #      parses and carries the two keys GitHub requires (name, description),
-#      and no metadata file is orphaned.
+#      and no metadata file is orphaned. GitHub documents templates as .yml
+#      and names the metadata file by replacing `.yml`, so a .yaml template
+#      fails.
 #   3. Every `uses: ForumViriumHelsinki/.github/.github/workflows/<file>@<ref>`
 #      in a tracked file (workflows, templates, docs, generated rule copies)
-#      names a workflow that exists here and declares workflow_call.
+#      names a workflow that exists here and declares workflow_call. The owner
+#      is matched case-insensitively and the value may be quoted.
 #
 # Reads the shipped files directly with yq and python3 (both on ubuntu-slim).
 # Every scan asserts it found something before its per-item checks, so an
@@ -40,19 +44,19 @@ sys.exit(0 if ok else 1)'
 shopt -s nullglob
 
 # ------------------------------------------------------------ 1. reusables
-reusables=(.github/workflows/reusable-*.yml)
+reusables=(.github/workflows/reusable-*.yml .github/workflows/reusable-*.yaml)
 if [ "${#reusables[@]}" -eq 0 ]; then
-  fail "no .github/workflows/reusable-*.yml found (glob matched nothing)"
+  fail "no .github/workflows/reusable-*.{yml,yaml} found (glob matched nothing)"
 else
   pass
 fi
 for f in ${reusables[@]+"${reusables[@]}"}; do
   if is_callable "$f"; then pass; else fail "$f: \`on\` does not include workflow_call"; fi
-  if [ "$(yq '.permissions | tag' "$f" 2>/dev/null)" = "!!map" ]; then
-    pass
-  else
-    fail "$f: no top-level \`permissions:\` map"
-  fi
+  case "$(yq '.permissions | tag' "$f" 2>/dev/null || true)" in
+    '!!map') pass ;;
+    '!!str') fail "$f: top-level \`permissions:\` is the string '$(yq '.permissions' "$f")'; declare an explicit map of scopes" ;;
+    *) fail "$f: no top-level \`permissions:\` map" ;;
+  esac
 done
 
 # ------------------------------------------------------------ 2. templates
@@ -62,6 +66,9 @@ if [ "${#templates[@]}" -eq 0 ]; then
 else
   pass
 fi
+for f in workflow-templates/*.yaml; do
+  fail "$f: workflow templates must use the .yml extension (GitHub derives <name>.properties.json from it)"
+done
 for f in ${templates[@]+"${templates[@]}"}; do
   meta="${f%.yml}.properties.json"
   if [ ! -f "$meta" ]; then
@@ -89,8 +96,10 @@ for meta in workflow-templates/*.properties.json; do
 done
 
 # ------------------------------------------------------------ 3. uses: refs
-# [A-Za-z0-9._-]+ excludes doc placeholders such as `<name>.yml`.
-refs="$(git grep -hoE 'uses:[[:space:]]*ForumViriumHelsinki/\.github/\.github/workflows/[A-Za-z0-9._-]+@[A-Za-z0-9._/-]+' \
+# [A-Za-z0-9._-]+ excludes doc placeholders such as `<name>.yml`. -i because
+# GitHub resolves owner/repo case-insensitively; the optional quote covers
+# `uses: "…"` and `uses: '…'`.
+refs="$(git grep -hoiE 'uses:[[:space:]]*["'"'"']?ForumViriumHelsinki/\.github/\.github/workflows/[A-Za-z0-9._-]+@[A-Za-z0-9._/-]+' \
   | sed -E 's#.*/workflows/([^@]+)@.*#\1#' | LC_ALL=C sort -u || true)"
 if [ -z "$refs" ]; then
   fail "found no 'uses: ForumViriumHelsinki/.github/.github/workflows/<file>@<ref>' references (pattern or git grep broken)"
@@ -101,7 +110,7 @@ while IFS= read -r name; do
   [ -n "$name" ] || continue
   target=".github/workflows/$name"
   if [ ! -f "$target" ]; then
-    where="$(git grep -lE "workflows/${name//./\\.}@" | tr '\n' ' ' || true)"
+    where="$(git grep -liE "workflows/${name//./\\.}@" | tr '\n' ' ' || true)"
     fail "uses: …/workflows/$name points at a file that does not exist (referenced in: $where)"
   elif ! is_callable "$target"; then
     fail "uses: …/workflows/$name points at a workflow that does not declare workflow_call"

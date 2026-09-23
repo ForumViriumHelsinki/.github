@@ -27,13 +27,18 @@ jobs:
         with:
           persist-credentials: false
 
+      # GitHub accepts .yml and .yaml workflow files; nullglob drops whichever
+      # extension has no match instead of passing the literal pattern on.
       - name: Validate YAML
         run: |
           set -euo pipefail
-          for f in .github/workflows/*.yml workflow-templates/*.yml; do
+          shopt -s nullglob
+          files=(.github/workflows/*.yml .github/workflows/*.yaml workflow-templates/*.yml workflow-templates/*.yaml)
+          [ "${#files[@]}" -gt 0 ] || { echo "::error::no workflow or template files found"; exit 1; }
+          for f in "${files[@]}"; do
             yq -e 'tag == "!!map"' "$f" >/dev/null || { echo "::error file=$f::not a YAML mapping"; exit 1; }
           done
-          echo "All workflow and template files are valid YAML."
+          echo "All ${#files[@]} workflow and template files are valid YAML."
 
       - name: actionlint
         env:
@@ -47,7 +52,8 @@ jobs:
           # -shellcheck= matches `just lint`: shellcheck's style findings on
           # run: bodies are accepted pre-existing noise; expressions, action
           # inputs and workflow structure are still checked.
-          /tmp/actionlint -shellcheck= -oneline .github/workflows/*.yml workflow-templates/*.yml
+          shopt -s nullglob
+          /tmp/actionlint -shellcheck= -oneline .github/workflows/*.yml .github/workflows/*.yaml workflow-templates/*.yml workflow-templates/*.yaml
 
       - name: rulesync generated files are current
         run: npx --yes rulesync@latest generate --check

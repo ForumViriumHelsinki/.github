@@ -3,8 +3,9 @@
 #
 # Runs every .github/tests/<name>/run.sh in sorted order from the repo root,
 # prints one line per test, and replays a failing test's output indented under
-# its FAIL line. Exits 1 if any test fails, and also if no test is found: an
-# empty run is green by construction and asserts nothing.
+# its FAIL line. A test passes only if it exits 0 AND its last output line
+# starts with "PASS: ". Exits 1 if any test fails, and also if no test is
+# found: an empty run is green by construction and asserts nothing.
 #
 # Usage: bash .github/tests/run.sh [name ...]   # no names = every test
 set -euo pipefail
@@ -42,15 +43,23 @@ while IFS= read -r t; do
   [ -n "$t" ] || continue
   name="$(basename "$(dirname "$t")")"
   total=$((total + 1))
-  if out="$(bash "$t" 2>&1)"; then
-    printf 'PASS  %s  %s\n' "$name" "$(printf '%s\n' "$out" | tail -n 1)"
-  else
-    rc=$?
-    failed=$((failed + 1))
-    failed_names="$failed_names $name"
-    printf 'FAIL  %s  (exit %s)\n' "$name" "$rc"
-    printf '%s\n' "$out" | sed 's/^/    | /'
+  rc=0
+  out="$(bash "$t" 2>&1)" || rc=$?
+  last="${out##*$'\n'}"
+  if [ "$rc" -eq 0 ] && [ "${last#PASS: }" != "$last" ]; then
+    printf 'PASS  %s  %s\n' "$name" "$last"
+    continue
   fi
+  failed=$((failed + 1))
+  failed_names="$failed_names $name"
+  if [ "$rc" -eq 0 ]; then
+    # Exit 0 without the summary line: the test may have stopped before it
+    # asserted anything, which is indistinguishable from a pass otherwise.
+    printf 'FAIL  %s  (exit 0, but the last line is not "PASS: <name> (<n> assertion(s))")\n' "$name"
+  else
+    printf 'FAIL  %s  (exit %s)\n' "$name" "$rc"
+  fi
+  printf '%s\n' "$out" | sed 's/^/    | /'
 done <<EOF
 $tests
 EOF
