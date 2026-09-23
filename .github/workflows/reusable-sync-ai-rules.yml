@@ -70,7 +70,7 @@ jobs:
             - [ ] Verify `.github/instructions/` contains `.instructions.md` files
             - [ ] Verify `.cursor/rules/` contains `.mdc` files
             - [ ] Verify `.agents/rules/` and `.geminiignore` are generated
-            - [ ] Verify the `permissions.deny` block in `.claude/settings.json` still holds any entries this repo added
+            - [ ] Check the `.claude/settings.json` diff: generation replaces every `Read(...)` entry in `permissions.deny` with the synced `.aiignore` set and keeps the other entries, so a `Read(...)` deny this repo added by hand is dropped
 
             🤖 Generated with rulesync
           branch: chore/sync-ai-rules
