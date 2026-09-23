@@ -38,7 +38,10 @@ on:
         required: false
         default: 45
       additional_permissions:
-        description: 'Additional tool permissions, merged with the built-in actions:read'
+        description: >-
+          GitHub permissions map forwarded to the action for its App token, as
+          "key: value" lines, merged with the built-in "actions: read". NOT a Claude
+          tool list — that is allowed_tools; a tool list here is silently inert.
         type: string
         required: false
         default: ''
