@@ -48,6 +48,7 @@ SECTION_MAP = {
     "Renovate Workflow Inputs": "reusable-renovate.yml",
     "Claude Workflow Inputs": "reusable-claude.yml",
     "npm Publish Workflow Inputs": "reusable-npm-publish.yml",
+    "Bun CI Workflow Inputs": "reusable-bun-ci.yml",
 }
 
 # A default longer than this may be documented as "see workflow" instead of
@@ -206,7 +207,11 @@ for heading, body in sections(doc):
     for name in doc_outputs:
         check(name in outputs, f"{wf}: 'Outputs:' bullet `{name}` is not a declared output")
 
+# A mapped workflow that does not exist yet (its PR has not landed) is not
+# required to have a section; once the file exists, the section must too.
 for wf in SECTION_MAP.values():
+    if not os.path.exists(os.path.join(".github/workflows", wf)):
+        continue
     check(wf in documented, f"SECTION_MAP names {wf} but the rule has no section for it")
 
 
