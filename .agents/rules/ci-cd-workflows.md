@@ -38,7 +38,7 @@ uses: ForumViriumHelsinki/.github/.github/workflows/<name>.yml@main
 |-------|------|---------|-------------|
 | `config-file` | string | `release-please-config.json` | Path to release-please config file |
 | `manifest-file` | string | `.release-please-manifest.json` | Path to release-please manifest file |
-| `app-id` | string | `''` | GitHub App ID (**preferred**); when set, uses an App token instead of the legacy `MY_RELEASE_PLEASE_TOKEN` PAT |
+| `app-id` | string | `''` | GitHub App **client ID** (a numeric App ID also works; the client ID is recommended). **Preferred**: when set, generates an App token via `APP_PRIVATE_KEY` instead of using the legacy `MY_RELEASE_PLEASE_TOKEN` PAT |
 | `runner` | string | `ubuntu-slim` | Runner label — release-please is a pure GitHub-API job |
 | `timeout-minutes` | number | `15` | Job timeout in minutes |
 | `skip-on-release-commit` | boolean | `false` | **Leave unset.** Skips the job when the head commit starts with `chore(main): release` — which is the release PR's own merge commit, i.e. the run that cuts the tag and release. See the warning below |
@@ -87,6 +87,19 @@ repo you know publishes before reading it as absence.
 Secrets:
 - `APP_PRIVATE_KEY` — GitHub App private key. Required when `app-id` is set. **Preferred — this is the org standard.**
 - `MY_RELEASE_PLEASE_TOKEN` — legacy PAT with `contents:write` and `pull-requests:write` scopes. Used only when `app-id` is empty. The shared org PAT expired 2026-06; new and migrated repos must use the App token.
+
+Outputs:
+- `release_created` — `true` when this run created a release for the root component; empty otherwise, never `false`, because the action sets it only when a root release exists. Gate on `== 'true'`, not `!= 'false'`. Path components of a monorepo config are not forwarded.
+- `tag_name` — tag of the root component's release from this run; empty when no root release was created, including when only path components were released.
+- `missed_release` — `true` when the pushed range held releasable commits but release-please produced neither a release PR nor a release; `false` when it held none. Empty in every other case: on non-`push` events, with `missed-release-check: off`, when a release or release PR was created, and when the guard runs but skips without a verdict (a branch-creation push, an empty `releasable-types`, or a push range the compare API cannot resolve). Empty means not checked, so only `false` is a clean result.
+
+A caller reads them through `needs.<job>.outputs`. podio-mcp gates its npm publish job on the release; its full caller is the example under **npm Publish Workflow Inputs** below:
+
+```yaml
+publish:
+  needs: release-please
+  if: ${{ needs.release-please.outputs.release_created == 'true' }}
+```
 
 Example — App-token caller (recommended; default for all repos):
 
@@ -149,15 +162,24 @@ secrets:
 | Input | Type | Default | Description |
 |-------|------|---------|-------------|
 | `runner` | string | `ubuntu-slim` | Runner label |
-| `max_turns` | number | `30` | Maximum agentic turns before stopping |
-| `claude_args` | string | `''` | Additional CLI arguments (appended after built-in `--max-turns` and `--system-prompt`) |
+| `claude_args` | string | `''` | Extra Claude CLI arguments, appended last. The workflow already passes `--model claude-opus-4-8 --effort medium`, `--max-turns`, `--allowedTools` and `--system-prompt`; change the turn budget and tool list through `max_turns` and `allowed_tools` |
+| `max_turns` | number | `50` | Maximum agentic turns, passed as `--max-turns` and stated in the built-in system prompt |
+| `allowed_tools` | string | *see workflow* | Comma-separated list passed verbatim as `--allowedTools`. The default covers the FVH stack: `Edit`, `Write`, `Bash(...)` for uv, pytest, python, ruff, bun, biome, node, just, pre-commit and make, and ten `mcp__github__*` issue tools. Setting the input replaces the whole default list; the action's own tag-mode tools (`Glob`, `Grep`, `LS`, `Read`, and git add/commit/push/rm) stay allowed regardless. Listing any `mcp__github__*` tool makes the action mount the GitHub MCP server |
+| `timeout_minutes` | number | `45` | Job timeout in minutes |
+| `additional_permissions` | string | `''` | Extra GitHub permissions for the action to request, one `scope: level` per line, appended after the built-in `actions: read` |
+| `plugins` | string | `''` | Newline-separated Claude Code plugins to install (`name@marketplace`) |
+| `plugin_marketplaces` | string | `''` | Newline-separated plugin marketplace Git URLs |
 
-Example — increase turns for a large codebase:
+Secrets:
+- `CLAUDE_CODE_OAUTH_TOKEN` — required. The org secret granted by the `claude` repository topic; see *The Claude token is granted by repository topic* above.
+
+Example — longer turn budget and job timeout for a large codebase:
 
 ```yaml
 uses: ForumViriumHelsinki/.github/.github/workflows/reusable-claude.yml@main
 with:
-  max_turns: 50
+  max_turns: 80
+  timeout_minutes: 60
 secrets:
   CLAUDE_CODE_OAUTH_TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
 ```
@@ -226,6 +248,52 @@ jobs:
         MY_CLIENT_ID=${{ secrets.MY_CLIENT_ID }}
 ```
 
+### Bun CI Workflow Inputs
+
+`reusable-bun-ci.yml` is the pull-request gate for bun/TypeScript repos: install from `bun.lock`, then run the repository's own typecheck, test and build commands in one job. It takes no secrets and needs only `contents: read`.
+
+| Input | Type | Default | Description |
+|-------|------|---------|-------------|
+| `install-command` | string | `bun install --frozen-lockfile` | Dependency install command. Bun does not enable `--frozen-lockfile` on its own in CI |
+| `typecheck-command` | string | `''` | Type-check command, run after install (empty string to skip; opt-in) |
+| `test-command` | string | `bun run test` | Test command (empty string to skip) |
+| `build-command` | string | `bun run build` | Build command (empty string to skip) |
+| `coverage` | boolean | `false` | Upload `<working-directory>/coverage/` as the `coverage` artifact (30-day retention; fails if the directory is empty) |
+| `bun-version` | string | `''` | Bun version for `oven-sh/setup-bun`. Empty reads `packageManager`/`engines.bun` from the repository-root `package.json`, then falls back to latest |
+| `node-version` | string | `''` | Node.js version for setup-node (empty string to skip Node setup) |
+| `cache-dependencies` | boolean | `true` | Cache `~/.bun/install/cache` keyed on `<working-directory>/bun.lock` |
+| `working-directory` | string | `.` | Directory containing `package.json` and `bun.lock` |
+| `runner` | string | `ubuntu-latest` | Runner label |
+| `timeout-minutes` | number | `15` | Job timeout in minutes |
+
+Commands are read from `env:` and run through `eval`, so shell operators work — a pre-install step chains onto `install-command` (`bun install --frozen-lockfile && bun run db:generate`). `coverage: true` does not change the test command; point `test-command` at the script that writes `coverage/` (e.g. `bun run test:coverage`). Codecov upload stays in the caller.
+
+**The build script is not necessarily the type gate.** Bundlers such as esbuild (WXT, Vite) strip type annotations without checking them, and plain `tsc --noEmit` can be red on arrival where a framework supplies ambient types through its own tsconfig — `silverbucket-helper` reported 201 errors, 149 of them chrome-namespace. `build-command` therefore defaults to the repo's own `bun run build`, and `typecheck-command` is opt-in. Set it to whatever the repo treats as its type gate.
+
+**A production build may hard-fail without secrets.** A PR gate compiles the code; it does not assert that secrets exist — secret presence belongs in the release workflow. If the production build throws on missing credentials, build in development mode instead (`bunx wxt build --mode development`).
+
+`bun-version` should be set explicitly for subdirectory projects: setup-bun's `package.json` fallback reads the repository root, not `working-directory`. Concurrency is set at job level with a `bun-ci-` group prefix; do not give the caller a concurrency group starting with `bun-ci-`, because a called workflow sees the caller's name in `github.workflow` and equal groups cancel the caller.
+
+Example — the `silverbucket-helper` gate on the shared workflow:
+
+```yaml
+on:
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  bun-ci:
+    uses: ForumViriumHelsinki/.github/.github/workflows/reusable-bun-ci.yml@main
+    with:
+      test-command: bun run test:coverage
+      typecheck-command: bun run compile:gate
+      build-command: bunx wxt build --mode development
+      coverage: true
+```
+
 ### Optional Workflows (Claude-Powered)
 
 | Caller Workflow | Reusable Workflow | Purpose |
@@ -256,6 +324,7 @@ Container workflows use a two-phase pattern:
 
 1. **PR phase** (`reusable-container-build.yml`): Builds `:next-{version}` pre-release image during release-please PR
 2. **Release phase** (`reusable-container-release.yml`): Promotes pre-built image to semver tags via manifest-only retag (seconds, not minutes) + runs Trivy scan
+   - Image tags derive from the version left after stripping `tag-prefix`; a `tag-prefix` that does not prefix the release tag fails the run
 3. Fallback rebuild if pre-built image is not found
 
 ## GitHub Actions Constraints
