@@ -42,6 +42,14 @@ This is the ForumViriumHelsinki `.github` special repository — the org-wide hu
 - Quality: `reusable-quality-{code-smell,async,typescript}.yml`
 - Accessibility: `reusable-a11y-{aria,wcag}.yml`
 
+The eight Security/Quality/Accessibility workflows pass `--json-schema` and default to `model: haiku` and `max-budget-usd: 5` (0 is unbounded, which lets a retry loop run on). They publish findings to the **job summary and PR file annotations**, never a PR comment: the action is granted no GitHub write tool, so the old "Leave a PR comment" prompt discarded every finding (#115). Both channels work under the `contents: read` the jobs already hold.
+
+Four things not to re-derive:
+- **The publish block is byte-identical across all eight and with `laurigates/.github`**, bar four env values (`TITLE`, `BLOCKING_SEVERITIES`, `COUNT_KEYS`, `NOTHING_SCANNED_REASON`, masked by the drift check). It is duplicated on purpose: `uses:` takes no expressions, so a shared composite action would run at floating `@main` even for a caller pinned by SHA, and a script in this repo is not checked out (these jobs check out the *caller*). `scripts/check-publish-drift.sh` fails on absence as well as drift. FVH-only additions go outside the `BEGIN`/`END` markers so future `[SYNC]` PRs stay mechanical.
+- **The analysis step runs with `continue-on-error: true`, and `Classify analysis outcome` decides the job.** The action fails the step whenever `--json-schema` is set and an otherwise successful run returns no `structured_output`, which happens non-deterministically. The verdict step reads Claude's final `result` message from the action's `execution_file` output (written before that check, and set on the failure path): `subtype: success` with `is_error: false` and no structured output is a warning and a green job; anything else that failed the step is an error with the reason. Guards downstream read `steps.analyze.outcome`, which stays `failure` under `continue-on-error`; `conclusion` would read `success`.
+- **Every gate predicate compares numerically** (`steps.publish.outputs.blocking > 0`), never as a string (`!= '0'`), and none carries `always()`. GitHub coerces the empty string a skipped publish step leaves to 0 for `>`, so a numeric gate cannot fire on a PR that scanned nothing.
+- **Everything the model emits is untrusted at the shell boundary.** It crosses into `run:` only through `env:`; annotation payloads (`severity` included) are `%`/CR/LF-escaped; `line` and the counts are type-checked, because a count carrying a newline writes a second `key=value` line into `$GITHUB_OUTPUT` and can overwrite `blocking`. The fixture harnesses extract the shipped step bodies rather than holding retyped copies.
+
 ### Build-Once/Promote Pattern
 
 The container workflows use a two-phase pattern to avoid redundant rebuilds:
@@ -99,3 +107,5 @@ just test workflow-contract   # one test by name
 Tests live in `.github/tests/<name>/run.sh` and follow the convention in `.github/tests/README.md`: bash with `set -euo pipefail`, run from the repo root, extract the shipped text out of the workflow file rather than retyping it, stub CLIs with a sentinel, scan every `reusable-*.yml` for the defect class, and prove the test fails on the pre-fix tree before opening the PR. The discovery runner fails when it finds zero tests.
 
 Behaviour that only a real run shows is still validated by pointing a calling repo's `@main` at a feature branch temporarily, or with a workflow dispatch, and by reading the run logs after merge.
+
+The Claude analysis workflows have four tests of their own: `publish-drift` (wraps `scripts/check-publish-drift.sh 8`), `publish-findings` and `analysis-verdict`, which run fixtures against the step bodies extracted from every workflow that passes `--json-schema`, and `analysis-contract`, which checks the same workflows' schema (`findings` required), prompt (no "Leave a PR comment"), job outputs and numeric union gates.
