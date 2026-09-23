@@ -24,7 +24,7 @@ on:
         type: string
         default: ''
       use-sticky-comment:
-        description: 'Maintain a single PR comment instead of posting a new comment per run'
+        description: "Forwarded to claude-code-action's use_sticky_comment. This workflow publishes findings to the job summary and file annotations, never a PR comment"
         required: false
         type: boolean
         default: true
@@ -385,6 +385,12 @@ jobs:
       # failure path too, whether the job should go red:
       #   success, is_error false, no structured_output -> warning, green
       #   anything else that failed the analysis step    -> error, red
+      # Two edges, both deliberate and open to revisit under #123:
+      # error_max_structured_output_retries (the model failed to produce
+      # schema-valid output) is red, like every other non-success subtype;
+      # and a success run with no structured_output is green even when it
+      # overran --max-turns (the action's own overrun check), because this
+      # step does not compare num_turns with max-turns.
       # Outside the shared publish block on purpose: the drift check compares
       # that block byte-for-byte with laurigates/.github.
       - name: Classify analysis outcome
@@ -422,9 +428,11 @@ jobs:
 
           # Every value interpolated into a workflow command is escaped: the
           # SDK's error strings can carry newlines, and a newline would end
-          # the annotation and start a new command.
+          # the annotation and start a new command. `word` maps an empty
+          # value to 'unknown': tab is IFS whitespace, so `read` collapses
+          # an empty @tsv field and would shift every later field left.
           read -r SUBTYPE IS_ERROR TURNS HAS_OUTPUT < <(printf '%s' "$RESULT" | jq -r '
-            def word: tostring | gsub("[^A-Za-z0-9_.-]"; "_");
+            def word: tostring | gsub("[^A-Za-z0-9_.-]"; "_") | if . == "" then "unknown" else . end;
             [(.subtype // "unknown" | word), (.is_error == true), (.num_turns // "unknown" | word),
              (has("structured_output") and .structured_output != null)] | @tsv')
           ERRORS="$(printf '%s' "$RESULT" | jq -r '

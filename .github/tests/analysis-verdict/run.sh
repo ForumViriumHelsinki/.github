@@ -52,6 +52,7 @@ fixture max-turns.json "[$INIT,{\"type\":\"result\",\"subtype\":\"error_max_turn
 fixture max-budget.json "[$INIT,{\"type\":\"result\",\"subtype\":\"error_max_budget_usd\",\"is_error\":true,\"num_turns\":31,\"errors\":[]}]"
 fixture during-exec.json "[$INIT,{\"type\":\"result\",\"subtype\":\"error_during_execution\",\"is_error\":true,\"num_turns\":4,\"errors\":[\"boom\\n::error::INJECTED\",\"100% gone\"]}]"
 fixture weird-subtype.json "[$INIT,{\"type\":\"result\",\"subtype\":\"odd\\n::error::INJECTED\",\"is_error\":true,\"num_turns\":1}]"
+fixture empty-subtype.json "[$INIT,{\"type\":\"result\",\"subtype\":\"\",\"is_error\":true,\"num_turns\":2}]"
 fixture no-result.json "[$INIT,$ASSIST]"
 fixture not-json.txt 'Error: this is not JSON'
 fixture empty.json ''
@@ -165,6 +166,12 @@ for WF in "${workflows[@]}"; do
   assert_rc 1
   assert_lines "$OUT" '^::' 1
   assert_lines "$OUT" '^::error::INJECTED' 0
+
+  # An empty @tsv field is collapsed by `read` (tab is IFS whitespace), which
+  # would shift is_error into SUBTYPE and name the wrong subtype.
+  run_case empty-subtype failure empty-subtype.json
+  assert_rc 1
+  assert_in "$OUT" "result subtype 'unknown' after 2 turns"
 
   run_case no-result-message failure no-result.json
   assert_rc 1
