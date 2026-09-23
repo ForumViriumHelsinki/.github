@@ -118,7 +118,7 @@ expect_eq "default working directory" '${{ inputs.working-directory }}' "$(wf '.
 uses_total=0
 while IFS= read -r line; do
   uses_total=$((uses_total + 1))
-  printf '%s\n' "$line" | grep -Eq 'uses: [^@ ]+@[0-9a-f]{40} # v[0-9]' ||
+  grep -Eq 'uses: [^@ ]+@[0-9a-f]{40} # v[0-9]' <<<"$line" ||
     fail "unpinned action reference: $line"
   pass
 done < <(grep -E '^[[:space:]]*(- )?uses:' "$WF")
@@ -174,7 +174,9 @@ expect_eq "typecheck is opt-in" '' "$(wf '.on.workflow_call.inputs["typecheck-co
 rule_section=$(awk '/^### Bun CI Workflow Inputs/{on=1; next} on && /^##/{exit} on' .claude/rules/ci-cd-workflows.md)
 [ -n "$rule_section" ] || fail ".claude/rules/ci-cd-workflows.md has no '### Bun CI Workflow Inputs' section"
 for input in $(wf '.on.workflow_call.inputs | keys | .[]'); do
-  printf '%s\n' "$rule_section" | grep -Fq "| \`$input\` |" ||
+  # Here-string, not `printf | grep -q`: grep -q exits on the first match and,
+  # under pipefail, printf's SIGPIPE fails the pipeline intermittently.
+  grep -Fq "| \`$input\` |" <<<"$rule_section" ||
     fail "input '$input' is not documented in .claude/rules/ci-cd-workflows.md (Bun CI section)"
   pass
   grep -Eq "^[[:space:]]*#[[:space:]]+$input:" workflow-templates/bun-ci.yml ||
