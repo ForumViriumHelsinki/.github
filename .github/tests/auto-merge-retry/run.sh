@@ -26,6 +26,7 @@ SENTINEL=STUB-GH-7f3a9c
 
 fatal() { echo "FATAL: $*" >&2; exit 1; }
 command -v yq >/dev/null || fatal "yq is required (mikefarah/yq v4)"
+command -v jq >/dev/null || fatal "jq is required (the stub gh applies --jq with it)"
 
 work="$(mktemp -d)"
 trap 'rm -rf "$work"' EXIT
@@ -96,10 +97,25 @@ next() {
 }
 case "$1 $2" in
   "pr view")
-    case " $* " in *" --json mergeable "*) ;; *) echo "stub gh: unexpected view args: $*" >&2; exit 98 ;; esac
+    # view.seq lines are STATE/MERGEABLE (or `error`). The stub builds the PR
+    # JSON, keeps only the --json fields, and applies the body's own --jq
+    # expression with jq, so the shipped expression is exercised too.
+    fields="" expr=""
+    shift 2
+    while [ $# -gt 0 ]; do
+      case "$1" in
+        --json) fields=$2; shift 2 ;;
+        --jq) expr=$2; shift 2 ;;
+        *) shift ;;
+      esac
+    done
+    [ -n "$fields" ] || { echo "stub gh: view without --json" >&2; exit 98; }
     r=$(next view)
     if [ "$r" = "error" ]; then echo "HTTP 502: Bad Gateway (stub)" >&2; exit 1; fi
-    echo "$r" ;;
+    json=$(jq -cn --arg s "${r%%/*}" --arg m "${r#*/}" --arg f "$fields" \
+      '{state: $s, mergeable: $m, mergeStateStatus: $m}
+       | with_entries(select(.key as $k | $f | split(",") | index($k)))')
+    if [ -n "$expr" ]; then jq -r "$expr" <<< "$json"; else echo "$json"; fi ;;
   "pr merge")
     r=$(next merge)
     case "$r" in
@@ -154,7 +170,7 @@ B=$SLEEP_BASE
 geometric() { local d=$B i out=""; for ((i = 0; i < $1; i++)); do out+="$d "; d=$((d * 2)); done; echo "${out% }"; }
 
 # 1. Mergeability still computing: wait for it, then merge once.
-run_case unknown-then-mergeable squash 'UNKNOWN|UNKNOWN|MERGEABLE' 'ok'
+run_case unknown-then-mergeable squash 'OPEN/UNKNOWN|OPEN/UNKNOWN|OPEN/MERGEABLE' 'ok'
 expect_rc 0
 expect_count "$VIEW" 3 "gh pr view"
 expect_count "$MERGE" 1 "gh pr merge"
@@ -164,14 +180,14 @@ grep -qxF "$MERGE --auto --delete-branch --squash $HEAD" "$LOG" ||
   fail "merge args were not '--auto --delete-branch --squash $HEAD': $(grep "^$MERGE" "$LOG")"
 
 # 2. The #124 race: a sibling PR moves main twice, the third attempt lands.
-run_case base-modified-twice squash 'MERGEABLE' "fail:$RACE|fail:$RACE|ok"
+run_case base-modified-twice squash 'OPEN/MERGEABLE' "fail:$RACE|fail:$RACE|ok"
 expect_rc 0
 expect_count "$MERGE" 3 "gh pr merge"
 expect_out_n '::warning::' 2
 expect_sleeps "$(geometric 2)"
 
 # 3. Never succeeds: bounded, fails loudly, keeps gh's message.
-run_case always-fails squash 'MERGEABLE' "fail:$RACE"
+run_case always-fails squash 'OPEN/MERGEABLE' "fail:$RACE"
 expect_rc 1
 expect_count "$MERGE" "$MAX_ATTEMPTS" "gh pr merge"
 expect_out_n '::error::' 1
@@ -179,7 +195,7 @@ expect_out "::error::gh pr merge failed after $MAX_ATTEMPTS attempts: $RACE"
 expect_sleeps "$(geometric $((MAX_ATTEMPTS - 1)))"
 
 # 4. Happy path: one merge, no waiting.
-run_case first-try rebase 'MERGEABLE' 'ok'
+run_case first-try rebase 'OPEN/MERGEABLE' 'ok'
 expect_rc 0
 expect_count "$MERGE" 1 "gh pr merge"
 expect_sleeps ""
@@ -187,7 +203,7 @@ check
 grep -q -- "^$MERGE .*--rebase $HEAD\$" "$LOG" || fail "merge-method rebase did not reach gh as --rebase"
 
 # 5. Mergeability never settles: the wait is bounded and the merge still runs.
-run_case unknown-forever squash 'UNKNOWN' 'ok'
+run_case unknown-forever squash 'OPEN/UNKNOWN' 'ok'
 expect_rc 0
 expect_count "$VIEW" "$MAX_ATTEMPTS" "gh pr view"
 expect_count "$MERGE" 1 "gh pr merge"
@@ -197,13 +213,28 @@ run_case view-errors squash 'error' 'ok'
 expect_rc 0
 expect_count "$MERGE" 1 "gh pr merge"
 
+# 7. The merge landed but gh exited non-zero (remote branch delete failed). A
+#    merged PR reads mergeable UNKNOWN indefinitely, so the retry must stop on
+#    state MERGED instead of spending the UNKNOWN wait and merging again.
+DELETE_ERR="failed to delete remote branch $HEAD: HTTP 500: Internal Server Error (stub)"
+run_case merged-after-failed-attempt squash 'OPEN/MERGEABLE|MERGED/UNKNOWN' "fail:$DELETE_ERR|ok"
+expect_rc 0
+expect_count "$VIEW" 2 "gh pr view"
+expect_count "$MERGE" 1 "gh pr merge"
+expect_sleeps "$B"
+expect_out "::warning::gh pr merge attempt 1/$MAX_ATTEMPTS failed, retrying in ${B}s: $DELETE_ERR"
+expect_out "already merged"
+
 # ---------------------------------------------------------------- class scan
-# Every step that merges a PR is exposed to the same base-moved race.
+# Every step that merges a PR, or enables auto-merge, is exposed to the same
+# base-moved race.
 CASE=scan
 found=0
 for f in .github/workflows/*.yml .github/workflows/*.yaml workflow-templates/*.yml workflow-templates/*.yaml; do
   [ -f "$f" ] || continue
-  steps="$(yq -r '.jobs[]?.steps[]? | select((.run // "") | test("gh +pr +merge|/pulls/[^ ]*/merge|mergePullRequest")) | (.name // "<unnamed step>")' "$f")" ||
+  # `\x5c` is a backslash, so `gh pr \<newline> merge` matches too. Steps that
+  # merge through an action (`uses:`) are flagged by name.
+  steps="$(yq -r '.jobs[]?.steps[]? | select(((.run // "") | test("gh[\\s\\x5c]+pr[\\s\\x5c]+merge|/pulls/[^ ]*/merge|mergePullRequest|enablePullRequestAutoMerge")) or ((.uses // "") | test("(?i)auto-?merge|merge-pull-request"))) | (.name // "<unnamed step>")' "$f")" ||
     fatal "yq could not parse $f"
   while IFS= read -r step; do
     [ -n "$step" ] || continue

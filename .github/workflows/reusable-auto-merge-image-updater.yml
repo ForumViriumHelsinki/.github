@@ -124,8 +124,11 @@ jobs:
         # sibling runs merge into `main` seconds apart, and a sibling landing
         # between gh's read and its mutation is rejected with "Base branch was
         # modified. Review and try the merge again." gh does not retry.
-        # A retry after a merge that did land exits 0: gh reports an
-        # already-merged PR as a warning, not an error.
+        #
+        # A merged PR reads `mergeable: UNKNOWN` indefinitely, so the wait
+        # below checks `state` first and exits 0 on MERGED. That ends a retry
+        # after an attempt whose merge landed but whose exit was non-zero (a
+        # failed branch delete); that attempt's ::warning:: keeps the error.
         #
         # Inputs arrive through env so the body stays expression-free; the
         # regression test in .github/tests/auto-merge-retry/ runs it verbatim.
@@ -145,8 +148,13 @@ jobs:
             # UNKNOWN meanwhile; wait (bounded) for it to settle so gh reads a
             # real merge state. A failed read counts as settled.
             polls=0
-            while [ "$polls" -lt "$MAX_ATTEMPTS" ] &&
-                  [ "$(gh pr view "$HEAD_REF" --json mergeable --jq .mergeable 2>/dev/null || true)" = "UNKNOWN" ]; do
+            while [ "$polls" -lt "$MAX_ATTEMPTS" ]; do
+              pr_state=$(gh pr view "$HEAD_REF" --json state,mergeable --jq '.state + " " + .mergeable' 2>/dev/null || true)
+              case "$pr_state" in
+                "MERGED "*) echo "PR for $HEAD_REF is already merged"; exit 0 ;;
+                *" UNKNOWN") ;;
+                *) break ;;
+              esac
               polls=$((polls + 1))
               echo "Mergeability UNKNOWN; waiting ${SLEEP_BASE}s ($polls/$MAX_ATTEMPTS)"
               sleep "$SLEEP_BASE"
