@@ -11,6 +11,7 @@ This is the ForumViriumHelsinki `.github` special repository — the org-wide hu
 ### Directory Layout
 
 - `.github/workflows/reusable-*.yml` — 22 reusable workflows callable via `uses: ForumViriumHelsinki/.github/.github/workflows/<name>.yml@main`
+- `.github/workflows/lint.yml`, `.github/tests/`, `justfile` — this repo's own lint gate and workflow tests (see [Testing Workflows](#testing-workflows))
 - `.github/ISSUE_TEMPLATE/` — org-default issue templates (bug report, feature request)
 - `.github/PULL_REQUEST_TEMPLATE.md` — org-default PR template
 - `workflow-templates/` — starter workflows shown in the GitHub Actions "New workflow" UI (each has a `.yml` + `.properties.json` pair)
@@ -85,8 +86,14 @@ Edit `.rulesync/rules/*.md` directly, then run `generate` and `generate --check`
 
 ## Testing Workflows
 
-There is no local test suite. Workflow changes are validated by:
+`.github/workflows/lint.yml` gates every PR and push to `main`. Run the same checks locally before pushing:
 
-1. `actionlint` for static analysis of workflow syntax
-2. Testing in a calling repo by pointing `@main` to a feature branch temporarily, or using a workflow dispatch
-3. Reviewing GitHub Actions run logs after merge
+```bash
+just lint                     # yq YAML check + actionlint -shellcheck= + rulesync generate --check
+just test                     # every .github/tests/<name>/run.sh, via .github/tests/run.sh
+just test workflow-contract   # one test by name
+```
+
+Tests live in `.github/tests/<name>/run.sh` and follow the convention in `.github/tests/README.md`: bash with `set -euo pipefail`, run from the repo root, extract the shipped text out of the workflow file rather than retyping it, stub CLIs with a sentinel, scan every `reusable-*.yml` for the defect class, and prove the test fails on the pre-fix tree before opening the PR. The discovery runner fails when it finds zero tests.
+
+Behaviour that only a real run shows is still validated by pointing a calling repo's `@main` at a feature branch temporarily, or with a workflow dispatch, and by reading the run logs after merge.
