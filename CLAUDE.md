@@ -46,7 +46,7 @@ This is the ForumViriumHelsinki `.github` special repository — the org-wide hu
 The container workflows use a two-phase pattern to avoid redundant rebuilds:
 
 1. **PR phase** (`container-build`): Reads version from `package.json` (configurable), builds and pushes `:next-{version}` image to GHCR
-2. **Release phase** (`container-release`): On tag push, looks up `:next-{version}` image and does a manifest-only retag to semver tags (seconds, not minutes). Falls back to full rebuild if pre-release image is missing.
+2. **Release phase** (`container-release`): On tag push, looks up `:next-{version}` image and does a manifest-only retag to semver tags (seconds, not minutes). Falls back to full rebuild if pre-release image is missing. The semver tags derive from the version left after stripping `tag-prefix`, so a `tag-prefix` that does not prefix the release tag fails the run. `.github/tests/container-release-tags/run.sh` pins this.
 
 Release images are signed with cosign keyless (Sigstore OIDC) and scanned with Trivy.
 

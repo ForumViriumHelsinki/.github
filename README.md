@@ -115,6 +115,8 @@ jobs:
 
 `CLAUDE_CODE_OAUTH_TOKEN` is an organization secret granted only to repositories that carry the `claude` topic. A Claude-powered caller in a repository without that topic gets no token and fails.
 
+`tag-prefix` must prefix every release tag the caller triggers on: the release workflow strips it and derives all image tags from what remains (`my-app-v1.2.3` → `1.2.3`, `1.2`, `1`, `latest`; a pre-release such as `my-app-v1.2.3-rc.1` → `1.2.3-rc.1` only). A tag the prefix does not match fails the run with an `::error::`.
+
 ## Validating changes
 
 Every FVH repo calls these workflows at `@main`, so `.github/workflows/lint.yml` checks each PR and push to `main`: every workflow and template parses as YAML, actionlint passes, the generated rule copies match `.rulesync/rules/`, and every test under `.github/tests/` passes. `just lint` and `just test` run the same commands locally. The test convention is in [`.github/tests/README.md`](.github/tests/README.md).
