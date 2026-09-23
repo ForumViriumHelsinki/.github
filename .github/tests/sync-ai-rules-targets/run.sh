@@ -65,9 +65,12 @@ if not isinstance(want_targets, list) or not want_targets:
 if not isinstance(want_features, list) or not want_features:
     sys.exit(f"FAIL: {NAME}: rulesync.jsonc has no array 'features'")
 
+# Only what a consuming repo runs: the reusable workflows and the starter
+# templates. Workflows local to this repo (lint.yml's `generate --check`) run
+# next to this repo's own rulesync.jsonc, so the no-config trap cannot reach them.
 files = sorted(
-    glob.glob(".github/workflows/*.yml")
-    + glob.glob(".github/workflows/*.yaml")
+    glob.glob(".github/workflows/reusable-*.yml")
+    + glob.glob(".github/workflows/reusable-*.yaml")
     + glob.glob("workflow-templates/*.yml")
     + glob.glob("workflow-templates/*.yaml")
 )
