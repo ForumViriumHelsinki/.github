@@ -5,7 +5,9 @@ globs: **/*
 
 # GitHub Metadata Hygiene — FVH Org Delta
 
-The shared baseline (assignee, type label, reviewer, backfill) lives in the portfolio rule `~/repos/.claude/rules/github-metadata-hygiene.md`; this file adds only the FVH org delta.
+**Baseline.** Assign `laurigates` unless told otherwise. Set a type label (`bug`, `enhancement`, `chore`, `documentation`, `security`), checking `gh label list -R <owner>/<repo>` first. Set the milestone where one fits, and the issue type where the org defines them (`list_issue_types`, then MCP `issue_write` with `type`). Request a reviewer only when they are not the PR author: GitHub rejects self-review with HTTP 422, so run the reviewer update as its own `gh` call. When touching an issue or PR with gaps, backfill them and tell the user what was added.
+
+The FVH org delta:
 
 **Project is required.** Every issue gets a project (`-p <title>`) and, where the table defines one, its `project:*` label — the label drives automated board routing. A PR takes the same project and label as its linked issue, and always links one (`Closes #N`). Backfill a missing project when touching an issue or PR. If the context does not clearly map to one row, ask before proceeding.
 

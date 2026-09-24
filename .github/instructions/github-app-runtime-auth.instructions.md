@@ -1,6 +1,7 @@
 ---
 description: Runtime GitHub API access via a GitHub App installation
-applyTo: '**/deploy/values.yaml,**/deploy/**,**/*github*/**'
+applyTo: >-
+  **/deploy/values.yaml,**/deploy/**,**/*github*/**,**/*github*.ts,**/*github*.py
 ---
 # Runtime GitHub API Access — Use a GitHub App, Mint Tokens In-Process
 

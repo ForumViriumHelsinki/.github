@@ -3,6 +3,8 @@ paths:
   - '**/deploy/values.yaml'
   - '**/deploy/**'
   - '**/*github*/**'
+  - '**/*github*.ts'
+  - '**/*github*.py'
 ---
 # Runtime GitHub API Access — Use a GitHub App, Mint Tokens In-Process
 
