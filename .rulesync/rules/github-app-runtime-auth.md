@@ -2,7 +2,7 @@
 root: false
 targets: ["claudecode", "copilot", "antigravity-cli", "cursor"]
 description: "Runtime GitHub API access via a GitHub App installation"
-globs: ["**/deploy/values.yaml", "**/deploy/**", "**/src/**"]
+globs: ["**/deploy/values.yaml", "**/deploy/**", "**/*github*/**"]
 ---
 # Runtime GitHub API Access — Use a GitHub App, Mint Tokens In-Process
 

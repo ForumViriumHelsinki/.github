@@ -2,7 +2,8 @@
 description: >-
   Feature flag pattern for FVH application repos — GoFeatureFlag + OpenFeature
   SDK
-applyTo: '**/deploy/values.yaml,**/deploy/**,**/src/**,**/.github/workflows/**'
+applyTo: >-
+  **/deploy/values.yaml,**/deploy/**,**/*feature-flag*/**,**/*flags*.{ts,py},**/.github/workflows/**
 ---
 # Feature Flags — GOFF + OpenFeature for Application Repos
 
