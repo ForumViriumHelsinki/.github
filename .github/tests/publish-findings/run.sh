@@ -141,7 +141,7 @@ assert_in "$SUMMARY" '`src/crit.ts:10`'
 assert_in "$SUMMARY" '**Remediation:** fix it'
 # Blocking severities sort first and annotate at error level.
 ok
-head -1 "$ANNOTATIONS" | grep -qF '::error file=src/crit.ts,line=10::[Critical] [A03] bad' \
+grep -qF '::error file=src/crit.ts,line=10::[Critical] [A03] bad' <<<"$(head -1 "$ANNOTATIONS")" \
   || fail "first annotation is not the blocking one: $(head -1 "$ANNOTATIONS")"
 assert_in "$ANNOTATIONS" '::warning file=src/low.ts,line=4::[Low] [A09] minor'
 assert_in "$OUTPUT" 'blocking=1'

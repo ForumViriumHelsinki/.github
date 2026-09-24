@@ -213,7 +213,7 @@ export PATH="$TMP/bin:$PATH"
 export STUB_LOG="$TMP/probe.log"
 for tool in bun bunx node; do
   expect_eq "$tool resolves to the stub" "$TMP/bin/$tool" "$(command -v "$tool")"
-  "$tool" --probe | grep -Fq "$SENTINEL" || fail "$tool stub did not print its sentinel"
+  grep -Fq "$SENTINEL" <<<"$("$tool" --probe)" || fail "$tool stub did not print its sentinel"
   pass
 done
 
