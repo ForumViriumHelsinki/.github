@@ -339,6 +339,25 @@ The FVH org does not have GitHub Code Security enabled. The following are **forb
 
 These will fail with `403` on private repos.
 
+## Sentry Secrets Are Distributed by the Infrastructure Repo
+
+A workflow step that talks to Sentry (release creation, source-map upload) reads `SENTRY_DSN`, `SENTRY_AUTH_TOKEN`, `SENTRY_PROJECT` and `SENTRY_ORG` from Actions secrets. No application repo manages these itself. Terraform in `ForumViriumHelsinki/infrastructure` distributes them:
+
+| Secret | Scope | Source (`infrastructure/github/secrets_sentry.tf`) |
+|--------|-------|--------|
+| `SENTRY_DSN` | per-repo | GCP Secret Manager `sentry_dsn_<slug>`, written by the Sentry workspace. Only distributed once that secret exists. |
+| `SENTRY_AUTH_TOKEN` | per-repo | GCP Secret Manager, one org-shared token |
+| `SENTRY_PROJECT` | per-repo | The slug `lower(replace(repo, "/[^a-zA-Z0-9_-]/", "-"))` |
+| `SENTRY_ORG` | org-level | `var.sentry_org_slug`, default `forum-virium-helsinki` |
+
+Distribution is gated on the `sentry-enabled` topic in `infrastructure/github/repos.json` (archived and fork repos are skipped). The Sentry projects are created in `infrastructure/sentry/main.tf` (`sentry_project.all_github_repos`) with the same slug rule, which is how `SENTRY_PROJECT` resolves to a real project.
+
+When a Sentry step fails with a missing-env error (example repo: `thelma`):
+
+1. Confirm the repo carries the `sentry-enabled` topic in `infrastructure/github/repos.json`.
+2. Check what is actually present: `gh secret list -R ForumViriumHelsinki/thelma` and `gh api repos/ForumViriumHelsinki/thelma/actions/organization-secrets`.
+3. Fix a missing secret in the infrastructure repo. Do **not** run `gh secret set`: a hand-set secret is Terraform drift, and the next apply overwrites or removes it.
+
 ## Conventional Commits
 
 release-please requires conventional commit messages:

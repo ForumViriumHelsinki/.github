@@ -66,7 +66,7 @@ jobs:
 
             ## Test plan
 
-            - [ ] Verify `.claude/rules/` files have correct `globs:` frontmatter
+            - [ ] Verify `.claude/rules/` files have correct `paths:` frontmatter
             - [ ] Verify `.github/instructions/` contains `.instructions.md` files
             - [ ] Verify `.cursor/rules/` contains `.mdc` files
             - [ ] Verify `.agents/rules/` and `.geminiignore` are generated
