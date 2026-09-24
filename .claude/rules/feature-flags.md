@@ -2,7 +2,9 @@
 paths:
   - '**/deploy/values.yaml'
   - '**/deploy/**'
-  - '**/src/**'
+  - '**/*feature-flag*'
+  - '**/*feature-flag*/**'
+  - '**/*featureFlag*'
   - '**/.github/workflows/**'
 ---
 # Feature Flags — GOFF + OpenFeature for Application Repos
