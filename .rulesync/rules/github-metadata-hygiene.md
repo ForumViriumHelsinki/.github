@@ -1,6 +1,6 @@
 ---
 root: false
-targets: ["claudecode", "copilot", "antigravity-cli", "cursor"]
+targets: ["claudecode", "copilot", "antigravity-ide", "cursor"]
 description: "FVH org delta for GitHub issue/PR metadata — project routing, project:* labels, Terraform-managed labels"
 globs: ["**/*"]
 ---

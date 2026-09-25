@@ -1,6 +1,6 @@
 ---
 root: false
-targets: ["claudecode", "copilot", "antigravity-cli", "cursor"]
+targets: ["claudecode", "copilot", "antigravity-ide", "cursor"]
 description: "Required files, directory layout, Dockerfile patterns for FVH apps"
 globs: ["**/Dockerfile", "**/deploy/**", "**/skaffold.yaml"]
 ---

@@ -1,3 +1,7 @@
+---
+trigger: glob
+globs: '**/skaffold.yaml,**/justfile,**/k8s/**,**/.pre-commit-config.yaml'
+---
 # Local Development Patterns
 
 ## Skaffold Profiles

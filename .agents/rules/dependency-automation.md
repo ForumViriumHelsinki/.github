@@ -1,3 +1,8 @@
+---
+trigger: glob
+globs: >-
+  **/renovate.json,**/.release-please-manifest.json,**/release-please-config.json,**/deploy/values.yaml
+---
 # Dependency Automation
 
 ## Rule: Three automation tools manage dependencies — do not manually update what they own

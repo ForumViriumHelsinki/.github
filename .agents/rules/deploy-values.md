@@ -1,3 +1,7 @@
+---
+trigger: glob
+globs: '**/deploy/values.yaml,**/deploy/**'
+---
 # Deploy Values Configuration
 
 ## Rule: Application repos own deployment config in `deploy/values.yaml` using the `helm-webapp` chart

@@ -3,8 +3,8 @@
 # cover a git-tracked source-of-truth path.
 #
 # rulesync's `ignore` feature turns every line of .rulesync/.aiignore into a
-# `Read(<pattern>)` deny in .claude/settings.json (and a line in .cursorignore
-# and .geminiignore). A Claude Code Read deny also blocks Edit, Write and
+# `Read(<pattern>)` deny in .claude/settings.json (and a line in .cursorignore;
+# the antigravity-ide target has no ignore output). A Claude Code Read deny also blocks Edit, Write and
 # path-naming Bash commands, so an .aiignore line that covers the rule sources
 # makes the documented source of truth uneditable from a Claude session.
 #
@@ -12,7 +12,7 @@
 #   1. .claude/settings.json permissions.deny has no entry covering .rulesync/
 #      or rulesync.jsonc.
 #   2. .rulesync/.aiignore does not list them.
-#   3. .cursorignore and .geminiignore equal .aiignore, and the Read(...) deny
+#   3. .cursorignore equals .aiignore, and the Read(...) deny
 #      set equals the .aiignore pattern set (generated copies in sync).
 #   4. Class-wide: no Read/Edit/Write deny in any .claude/settings*.json in the
 #      repo covers a git-tracked file, and none covers a path CLAUDE.md
@@ -114,7 +114,7 @@ for pat in src_patterns:
         check(not covers(pat, g), f".rulesync/.aiignore ({os.environ['AIIGNORE_SRC']}) line {pat!r} covers {g}")
 
 # 3. Generated copies in sync with the source.
-for gen in (".cursorignore", ".geminiignore"):
+for gen in (".cursorignore",):
     with open(gen) as f:
         check(f.read().strip() == aiignore.strip(), f"{gen} differs from .rulesync/.aiignore; run npx rulesync@latest generate")
 root_read = sorted(p for e, p in root_denies if e.startswith("Read("))

@@ -171,13 +171,13 @@ expect_eq "typecheck is opt-in" '' "$(wf '.on.workflow_call.inputs["typecheck-co
 
 # Documentation: every declared input is a row in the generated rule copy's
 # Bun CI section and is listed in the starter template.
-rule_section=$(awk '/^### Bun CI Workflow Inputs/{on=1; next} on && /^##/{exit} on' .claude/rules/ci-cd-workflows.md)
-[ -n "$rule_section" ] || fail ".claude/rules/ci-cd-workflows.md has no '### Bun CI Workflow Inputs' section"
+rule_section=$(awk '/^### Bun CI Workflow Inputs/{on=1; next} on && /^##/{exit} on' .claude/rules/ci-cd-packages.md)
+[ -n "$rule_section" ] || fail ".claude/rules/ci-cd-packages.md has no '### Bun CI Workflow Inputs' section"
 for input in $(wf '.on.workflow_call.inputs | keys | .[]'); do
   # Here-string, not `printf | grep -q`: grep -q exits on the first match and,
   # under pipefail, printf's SIGPIPE fails the pipeline intermittently.
   grep -Fq "| \`$input\` |" <<<"$rule_section" ||
-    fail "input '$input' is not documented in .claude/rules/ci-cd-workflows.md (Bun CI section)"
+    fail "input '$input' is not documented in .claude/rules/ci-cd-packages.md (Bun CI section)"
   pass
   grep -Eq "^[[:space:]]*#[[:space:]]+$input:" workflow-templates/bun-ci.yml ||
     fail "input '$input' is not listed in workflow-templates/bun-ci.yml"

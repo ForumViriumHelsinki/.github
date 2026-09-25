@@ -40,7 +40,7 @@ jobs:
       # lists equal to this repo's rulesync.jsonc (pinned by
       # .github/tests/sync-ai-rules-targets/run.sh).
       - name: Generate tool-specific files
-        run: npx rulesync@latest generate --targets claudecode,copilot,antigravity-cli,cursor --features rules,ignore
+        run: npx rulesync@latest generate --targets claudecode,copilot,antigravity-ide,cursor --features rules,ignore
 
       - name: Check for changes
         id: changes
@@ -69,7 +69,7 @@ jobs:
             - [ ] Verify `.claude/rules/` files have correct `paths:` frontmatter
             - [ ] Verify `.github/instructions/` contains `.instructions.md` files
             - [ ] Verify `.cursor/rules/` contains `.mdc` files
-            - [ ] Verify `.agents/rules/` and `.geminiignore` are generated
+            - [ ] Verify every `.agents/rules/` file starts with `trigger:` frontmatter (Antigravity ignores rules without it)
             - [ ] Check the `.claude/settings.json` diff: generation replaces every `Read(...)` entry in `permissions.deny` with the synced `.aiignore` set and keeps the other entries, so a `Read(...)` deny this repo added by hand is dropped
 
             🤖 Generated with rulesync
