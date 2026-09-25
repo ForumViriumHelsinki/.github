@@ -22,6 +22,7 @@ The FVH org delta:
 | Platform Automation | `project:platform-automation` | Terraform, ArgoCD, platform tooling, infrastructure repo |
 | Kyverno Policies | `project:kyverno` | Security policies, admission control |
 | Cost Attribution Tooling | `project:cost-attribution` | `fvh-cost-attribution`, monthly cost reports, FinOps |
+| Internal Tools | `project:internal-tools` | FVH-internal staff tools: `silverbucket-helper`, apps in the `internal-tools` ArgoCD namespace |
 
 **The docs label is `documentation`**, not `docs`.
 
