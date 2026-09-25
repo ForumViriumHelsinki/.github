@@ -23,7 +23,7 @@ Local dev uses plain K8s manifests in `k8s/` — not Helm. Production uses `helm
 
 ## K8s Prerequisites
 
-- **OrbStack** (recommended) or Docker Desktop for local Kubernetes
+- **OrbStack** (licensed seat) for local Kubernetes; **Colima** or **Podman** for containers. Avoid Docker Desktop — see the [Container Runtimes Guide](https://github.com/ForumViriumHelsinki/infrastructure/wiki/Container-Runtimes-Guide) on the FVH wiki
 - OrbStack provides LoadBalancer support via `*.k8s.orb.local` — no port-forward needed
 
 ## Justfile Standard Recipe Groups
@@ -55,6 +55,20 @@ Install and run:
 ```bash
 pre-commit install
 pre-commit run --all-files
+```
+
+Plain `pre-commit install` installs only the `pre-commit` stage, so `commitizen`
+(a `commit-msg` hook) never runs. Either set this in `.pre-commit-config.yaml`,
+after which plain `pre-commit install` covers both stages:
+
+```yaml
+default_install_hook_types: [pre-commit, commit-msg]
+```
+
+or install both stages explicitly:
+
+```bash
+pre-commit install --hook-type pre-commit --hook-type commit-msg
 ```
 
 ## Pre-commit Config Gotchas
