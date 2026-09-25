@@ -22,6 +22,7 @@ Part of the CI/CD rule set; the call conventions are in ci-cd-workflows.md.
 | `skip-on-release-commit` | boolean | `false` | **Leave unset.** Skips the job when the head commit starts with `chore(main): release` — which is the release PR's own merge commit, i.e. the run that cuts the tag and release. See the warning below |
 | `missed-release-check` | string | `warn` | Guard against release-please silently considering zero commits. `warn` annotates, `error` fails the job, `off` disables |
 | `releasable-types` | string | `feat,fix,perf,revert` | Comma-separated conventional-commit types the guard treats as release-worthy |
+| `pr-assignees` | string | `''` | Comma-separated usernames to assign to the release PR, so it surfaces under `assignee:@me` in GitHub's dashboard and mobile feeds. Off when empty; literal usernames only (`@me` resolves to the App bot). A failed assignment warns, never fails the release |
 
 ### Do not set `skip-on-release-commit: true`
 
