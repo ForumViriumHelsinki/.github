@@ -99,7 +99,7 @@ Edit `.rulesync/rules/*.md` directly, then run `generate` and `generate --check`
 `.github/workflows/lint.yml` gates every PR and push to `main`. Run the same checks locally before pushing:
 
 ```bash
-just lint                     # yq YAML check + actionlint -shellcheck= + rulesync generate --check
+just lint                     # yq YAML check + actionlint -shellcheck= + gitleaks dir + rulesync generate --check
 just test                     # every .github/tests/<name>/run.sh, via .github/tests/run.sh
 just test workflow-contract   # one test by name
 ```

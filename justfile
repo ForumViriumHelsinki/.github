@@ -9,7 +9,7 @@ actionlint_version := "1.7.12"
 default:
     @just --list
 
-# YAML validity, actionlint, and rulesync drift (same checks as CI)
+# YAML validity, actionlint, gitleaks, and rulesync drift (same checks as CI)
 lint:
     #!/usr/bin/env bash
     set -euo pipefail
@@ -30,6 +30,9 @@ lint:
     fi
     "${al[@]}" -shellcheck= -oneline "${files[@]}"
     echo "actionlint: clean"
+    # Scans the working tree, including untracked scratch under tmp/.
+    command -v gitleaks >/dev/null || { echo "gitleaks not found: mise use -g aqua:gitleaks/gitleaks" >&2; exit 1; }
+    gitleaks dir --no-banner --redact --config .gitleaks.toml .
     npx --yes rulesync@latest generate --check
 
 # Run every test under .github/tests/, or only the named ones

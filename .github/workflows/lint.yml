@@ -2,7 +2,7 @@ name: Lint
 
 # Every FVH repo calls the reusable workflows here at `@main`, so a broken file
 # on main breaks its callers on their next run. This job is the gate in front of
-# main: YAML validity, actionlint, rulesync drift, and the tests under
+# main: YAML validity, actionlint, gitleaks, rulesync drift, and the tests under
 # .github/tests/. `just lint` and `just test` run the same commands locally.
 
 on:
@@ -54,6 +54,23 @@ jobs:
           # inputs and workflow structure are still checked.
           shopt -s nullglob
           /tmp/actionlint -shellcheck= -oneline .github/workflows/*.yml .github/workflows/*.yaml workflow-templates/*.yml workflow-templates/*.yaml
+
+      # The release binary, not gitleaks-action: the action needs a paid
+      # license on organization accounts. `dir` scans the checked-out tree;
+      # git history is not rescanned. Also puts gitleaks on PATH for the
+      # public-identifiers test.
+      - name: gitleaks
+        env:
+          GITLEAKS_VERSION: '8.30.1'
+          GITLEAKS_SHA256: '551f6fc83ea457d62a0d98237cbad105af8d557003051f41f3e7ca7b3f2470eb'
+        run: |
+          set -euo pipefail
+          curl -fsSL -o /tmp/gitleaks.tgz "https://github.com/gitleaks/gitleaks/releases/download/v${GITLEAKS_VERSION}/gitleaks_${GITLEAKS_VERSION}_linux_x64.tar.gz"
+          echo "${GITLEAKS_SHA256}  /tmp/gitleaks.tgz" | sha256sum -c -
+          mkdir -p "$RUNNER_TEMP/bin"
+          tar -xzf /tmp/gitleaks.tgz -C "$RUNNER_TEMP/bin" gitleaks
+          echo "$RUNNER_TEMP/bin" >> "$GITHUB_PATH"
+          "$RUNNER_TEMP/bin/gitleaks" dir --no-banner --redact --config .gitleaks.toml .
 
       - name: rulesync generated files are current
         run: npx --yes rulesync@latest generate --check
