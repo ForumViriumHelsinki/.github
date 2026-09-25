@@ -1,0 +1,22 @@
+title = "Gitleaks configuration for ForumViriumHelsinki/.github"
+
+# This repo is public, and its rules are copied into every FVH app repo that
+# runs the AI-rules sync. Besides the default secret rules, block FVH GCP
+# identifiers: a project ID or Cloud SQL connection name is not a credential,
+# but it maps the org's infrastructure for anyone reading. Examples use
+# `my-project` and `my-instance`.
+
+[extend]
+useDefault = true
+
+[[rules]]
+id = "fvh-gcp-project-id"
+description = "FVH GCP project ID or Cloud SQL connection name in a public file"
+regex = '''\b(?:fvh-project-[a-z0-9-]+|[a-z][a-z0-9-]*:europe-north1:[a-z0-9-]+)\b'''
+keywords = ["fvh-project-", ":europe-north1:"]
+tags = ["fvh", "identifier"]
+
+  [[rules.allowlists]]
+  description = "Placeholder project in documentation examples"
+  regexTarget = "match"
+  regexes = ['''^my-project:europe-north1:''']

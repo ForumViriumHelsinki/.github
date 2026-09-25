@@ -32,7 +32,7 @@ imagePullSecrets:
 ```yaml
 serviceAccount:
   annotations:
-    iam.gke.io/gcp-service-account: my-app@fvh-project-containers-etc.iam.gserviceaccount.com
+    iam.gke.io/gcp-service-account: my-app@my-project.iam.gserviceaccount.com
 ```
 
 ### Cloud SQL Proxy Sidecar
@@ -45,7 +45,7 @@ initContainers:
     args:
       - "--structured-logs"
       - "--auto-iam-authn"
-      - "fvh-project-containers-etc:europe-north1:fvh-postgres"
+      - "my-project:europe-north1:my-instance"
     securityContext:
       runAsNonRoot: true
 ```
