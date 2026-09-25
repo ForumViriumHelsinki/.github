@@ -1,3 +1,6 @@
+---
+trigger: always_on
+---
 # GitHub Metadata Hygiene — FVH Org Delta
 
 **Baseline.** Assign `laurigates` unless told otherwise. Set a type label (`bug`, `enhancement`, `chore`, `documentation`, `security`), checking `gh label list -R <owner>/<repo>` first. Set the milestone where one fits, and the issue type where the org defines them (`list_issue_types`, then MCP `issue_write` with `type`). Request a reviewer only when they are not the PR author: GitHub rejects self-review with HTTP 422, so run the reviewer update as its own `gh` call. When touching an issue or PR with gaps, backfill them and tell the user what was added.

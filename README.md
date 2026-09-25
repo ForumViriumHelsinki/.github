@@ -136,9 +136,9 @@ The org's coding rules for AI assistants live in `.rulesync/rules/*.md` in this 
 |--------|---------------|--------|
 | `.rulesync/rules/*.md` | Claude Code | `.claude/rules/*.md` |
 | | GitHub Copilot | `.github/instructions/*.instructions.md` |
-| | Antigravity CLI | `.agents/rules/*.md` |
+| | Antigravity (`agy`), via rulesync's `antigravity-ide` target | `.agents/rules/*.md` with `trigger:` frontmatter |
 | | Cursor | `.cursor/rules/*.mdc` |
-| `.rulesync/.aiignore` | Claude Code, Gemini CLI, Cursor | a `permissions.deny` block in `.claude/settings.json`, plus `.geminiignore` and `.cursorignore` |
+| `.rulesync/.aiignore` | Claude Code, Cursor | a `permissions.deny` block in `.claude/settings.json`, plus `.cursorignore` |
 
 ### Editing the rules
 
@@ -173,7 +173,7 @@ jobs:
 
 Each run fetches `.rulesync/` from this repository into the calling repo, regenerates the per-tool files, and opens a PR on branch `chore/sync-ai-rules` when anything changed. The fetched `.rulesync/` copy is committed in the consuming repo too — rulesync generates from a local source tree, so the rules have to land there before `generate` can read them.
 
-**The workflow does not read the consuming repo's `rulesync.jsonc` for targets or features.** `fetch` pulls only `.rulesync/`, never the config, and a bare `generate` with no config resolves to the `agentsmd` target alone — which no rule's frontmatter lists — so it writes zero files at exit 0. The generate step therefore passes `--targets claudecode,copilot,antigravity-cli,cursor --features rules,ignore`, the same lists as this repository's `rulesync.jsonc`. CLI options take precedence over `rulesync.jsonc` and `rulesync.local.jsonc`, so a consuming repo that commits its own config with different lists still gets these four targets. Options the command line does not set, such as `delete`, are still read from a config if one exists. Against this repository's rules the step writes 35 files: eight rules for each of the four targets, plus `.claude/settings.json`, `.geminiignore` and `.cursorignore`. In an existing `.claude/settings.json`, generation replaces every `Read(...)` entry in `permissions.deny` with the fetched `.aiignore` set and keeps the other `deny` entries, `allow` and `enabledPlugins`, so a consuming repo's own `Read(...)` denies are dropped on each sync.
+**The workflow does not read the consuming repo's `rulesync.jsonc` for targets or features.** `fetch` pulls only `.rulesync/`, never the config, and a bare `generate` with no config resolves to the `agentsmd` target alone — which no rule's frontmatter lists — so it writes zero files at exit 0. The generate step therefore passes `--targets claudecode,copilot,antigravity-ide,cursor --features rules,ignore`, the same lists as this repository's `rulesync.jsonc`. CLI options take precedence over `rulesync.jsonc` and `rulesync.local.jsonc`, so a consuming repo that commits its own config with different lists still gets these four targets. Options the command line does not set, such as `delete`, are still read from a config if one exists. Against this repository's rules the step writes 50 files: twelve rules for each of the four targets, plus `.claude/settings.json` and `.cursorignore`. In an existing `.claude/settings.json`, generation replaces every `Read(...)` entry in `permissions.deny` with the fetched `.aiignore` set and keeps the other `deny` entries, `allow` and `enabledPlugins`, so a consuming repo's own `Read(...)` denies are dropped on each sync.
 
 ### Running a sync by hand
 
@@ -184,14 +184,14 @@ npx rulesync@latest fetch ForumViriumHelsinki/.github --features rules,ignore --
 ```
 
 ```
-npx rulesync@latest generate --targets claudecode,copilot,antigravity-cli,cursor --features rules,ignore
+npx rulesync@latest generate --targets claudecode,copilot,antigravity-ide,cursor --features rules,ignore
 ```
 
 A consuming repo that commits a copy of this repository's `rulesync.jsonc` can drop both flags. `--path .rulesync` is required: rulesync 9 and later resolve features against the source repo's root, so without it the fetch looks for `rules/` at the top level, 404s, and returns zero files at exit 0.
 
 ### The generated deny block
 
-Each line of `.rulesync/.aiignore` becomes a `Read(...)` entry in the `permissions.deny` block of the generated `.claude/settings.json`, and a line in `.geminiignore` and `.cursorignore`. The file lists `rulesync.local.jsonc`, `rulesync.lock` and `node_modules/`: untracked, machine-local paths. It does not list `.rulesync/` or `rulesync.jsonc`, because a Claude Code `Read` deny also blocks Edit, Write and Bash commands that name the path ([permissions docs](https://code.claude.com/docs/en/permissions)), which would make the rule sources and the config uneditable in a Claude Code session. Claude Code does not auto-load `.rulesync/`, so the sources are not read twice; Cursor and Antigravity CLI index them as ordinary files.
+Each line of `.rulesync/.aiignore` becomes a `Read(...)` entry in the `permissions.deny` block of the generated `.claude/settings.json`, and a line in `.cursorignore`. The file lists `rulesync.local.jsonc`, `rulesync.lock` and `node_modules/`: untracked, machine-local paths. It does not list `.rulesync/` or `rulesync.jsonc`, because a Claude Code `Read` deny also blocks Edit, Write and Bash commands that name the path ([permissions docs](https://code.claude.com/docs/en/permissions)), which would make the rule sources and the config uneditable in a Claude Code session. Claude Code does not auto-load `.rulesync/`, so the sources are not read twice; Cursor and Antigravity CLI index them as ordinary files.
 
 Generation replaces every `Read(...)` deny in an existing `.claude/settings.json` with the `.aiignore` set and leaves the rest of the file — non-`Read` denies, `allow`, `enabledPlugins`, everything else — untouched. A `Read(...)` deny added to `settings.json` by hand is dropped on the next `generate`; add the pattern to `.aiignore` instead. A consuming repo that fetches `--features rules,ignore` receives this `.aiignore` too, so the same replacement applies to its `settings.json`.
 

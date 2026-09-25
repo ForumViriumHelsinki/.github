@@ -1,3 +1,7 @@
+---
+trigger: glob
+globs: '**/Dockerfile,**/deploy/**,**/skaffold.yaml'
+---
 # Application Repository Structure
 
 ## Rule: Every deployed FVH application follows a standard file layout

@@ -1,3 +1,8 @@
+---
+trigger: glob
+globs: >-
+  **/deploy/values.yaml,**/deploy/**,**/*feature-flag*,**/*feature-flag*/**,**/*featureFlag*,**/.github/workflows/**
+---
 # Feature Flags — GOFF + OpenFeature for Application Repos
 
 ## Rule: Prefer GoFeatureFlag over environment variables for feature toggles

@@ -1,3 +1,8 @@
+---
+trigger: glob
+globs: >-
+  **/deploy/values.yaml,**/deploy/**,**/*github*/**,**/*github*.ts,**/*github*.py
+---
 # Runtime GitHub API Access — Use a GitHub App, Mint Tokens In-Process
 
 ## Rule: a deployed app that calls the GitHub API authenticates as a GitHub App installation, minting the installation token inside the process

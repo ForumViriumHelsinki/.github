@@ -4,7 +4,8 @@
 #
 # Source of truth: `.on.workflow_call` in .github/workflows/reusable-*.yml,
 # read with yq (ubuntu-slim ships yq; it does not ship PyYAML).
-# Documentation under test: the rulesync source of the CI/CD rule. The four
+# Documentation under test: the rulesync sources of the CI/CD rules
+# (.rulesync/rules/ci-cd-*.md, read as one document). The four
 # generated copies are covered by `npx rulesync generate --check`, which no CI
 # workflow in this repo runs yet; until one does, a hand edit to a generated
 # copy is not caught.
@@ -38,7 +39,9 @@ command -v yq >/dev/null || { echo "FAIL: workflow-doc-tables: yq not found on P
 python3 - <<'PY'
 import glob, json, os, re, subprocess, sys
 
-DOC = ".rulesync/rules/ci-cd-workflows.md"
+# The CI/CD rule is split by topic to fit Antigravity's per-file limit; the
+# sections are checked as one document.
+DOC_GLOB = ".rulesync/rules/ci-cd-*.md"
 NAME = "workflow-doc-tables"
 
 # Section heading prefix -> workflow file. A `### ... Workflow Inputs` heading
@@ -67,14 +70,24 @@ def check(ok, msg):
 
 
 def read_doc():
-    try:
-        with open(DOC, encoding="utf-8") as fh:
-            return fh.read()
-    except OSError:
+    paths = sorted(glob.glob(DOC_GLOB))
+    if not paths:
         # Local agent sessions may deny direct reads of the rulesync source;
-        # the committed copy is the same file for a clean tree.
-        return subprocess.run(["git", "show", "HEAD:" + DOC], check=True,
-                              capture_output=True, text=True).stdout
+        # the committed copies are the same files for a clean tree.
+        listed = subprocess.run(["git", "ls-files", DOC_GLOB], check=True,
+                                capture_output=True, text=True).stdout.split()
+        paths = sorted(listed)
+    if not paths:
+        sys.exit(f"FAIL: {NAME}: no files match {DOC_GLOB}")
+    parts = []
+    for path in paths:
+        try:
+            with open(path, encoding="utf-8") as fh:
+                parts.append(fh.read())
+        except OSError:
+            parts.append(subprocess.run(["git", "show", "HEAD:" + path], check=True,
+                                        capture_output=True, text=True).stdout)
+    return "\n".join(parts)
 
 
 def yq_json(expr, path):
