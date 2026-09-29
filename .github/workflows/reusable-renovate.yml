@@ -29,7 +29,7 @@ on:
         type: string
         default: ''
       bot-git-author:
-        description: 'RENOVATE_GIT_AUTHOR full author string (e.g. "bot <bot[bot]@users.noreply.github.com>"). Only applies when app-id is set.'
+        description: 'RENOVATE_GIT_AUTHOR full author string (e.g. "bot[bot] <123456+bot[bot]@users.noreply.github.com>"; the email needs the App user id). Only applies when app-id is set.'
         required: false
         type: string
         default: ''
