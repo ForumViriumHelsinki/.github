@@ -42,7 +42,7 @@ This is the ForumViriumHelsinki `.github` special repository — the org-wide hu
 - Quality: `reusable-quality-{code-smell,async,typescript}.yml`
 - Accessibility: `reusable-a11y-{aria,wcag}.yml`
 
-The eight Security/Quality/Accessibility workflows pass `--json-schema` and default to `model: haiku` and `max-budget-usd: 5` (0 is unbounded, which lets a retry loop run on). They publish findings to the **job summary and PR file annotations**, never a PR comment: the action is granted no GitHub write tool, so the old "Leave a PR comment" prompt discarded every finding (#115). Both channels work under the `contents: read` the jobs already hold.
+The eight Security/Quality/Accessibility workflows pass `--json-schema` and default to `model: claude-opus-5-5`, `effort: low` and `max-budget-usd: 5` (0 is unbounded, which lets a retry loop run on). They publish findings to the **job summary and PR file annotations**, never a PR comment: the action is granted no GitHub write tool, so the old "Leave a PR comment" prompt discarded every finding (#115). Both channels work under the `contents: read` the jobs already hold.
 
 Four things not to re-derive:
 - **The publish block is byte-identical across all eight and with `laurigates/.github`**, bar four env values (`TITLE`, `BLOCKING_SEVERITIES`, `COUNT_KEYS`, `NOTHING_SCANNED_REASON`, masked by the drift check). It is duplicated on purpose: `uses:` takes no expressions, so a shared composite action would run at floating `@main` even for a caller pinned by SHA, and a script in this repo is not checked out (these jobs check out the *caller*). `scripts/check-publish-drift.sh` fails on absence as well as drift. FVH-only additions go outside the `BEGIN`/`END` markers so future `[SYNC]` PRs stay mechanical.
