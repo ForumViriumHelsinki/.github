@@ -57,7 +57,7 @@ Inputs, secrets and outputs of the most-used reusable workflows are in sibling r
 | `dry-run` | string | `false` | Dry run mode (`false`, `full`, `lookup`) |
 | `app-id` | string | `''` | Renovate GitHub App **client ID** (a numeric App ID also works; the client ID is recommended). When set, generates an App token via `APP_PRIVATE_KEY` instead of using `GITHUB_TOKEN` |
 | `bot-username` | string | `''` | `RENOVATE_USERNAME` (e.g. `fvh-renovate-bot[bot]`). Only applies when `app-id` is set. |
-| `bot-git-author` | string | `''` | `RENOVATE_GIT_AUTHOR` full author string. Only applies when `app-id` is set. |
+| `bot-git-author` | string | `''` | `RENOVATE_GIT_AUTHOR` full author string. The email must be the App's `<user-id>+<slug>[bot]@users.noreply.github.com` address (user id from `gh api 'users/<slug>%5Bbot%5D'`); without the id Renovate treats its own commits as edited and stops rebasing. Only applies when `app-id` is set. |
 | `timeout-minutes` | number | `60` | Job timeout in minutes |
 | `repositories` | string | `''` | Explicit `RENOVATE_REPOSITORIES` value (space- or comma-separated `owner/repo` slugs). Overrides the default of scanning only the calling repo. Ignored when `autodiscover` is enabled. |
 | `autodiscover` | string | `'false'` | Set to `true` to autodiscover every repository the App installation can access (`RENOVATE_AUTODISCOVER`), optionally narrowed by `autodiscover-filter`. Takes precedence over `repositories`. |
@@ -75,7 +75,7 @@ uses: ForumViriumHelsinki/.github/.github/workflows/reusable-renovate.yml@main
 with:
   app-id: ${{ vars.RENOVATE_APP_ID }}
   bot-username: fvh-renovate-bot[bot]
-  bot-git-author: fvh-renovate-bot <fvh-renovate-bot[bot]@users.noreply.github.com>
+  bot-git-author: "fvh-renovate-bot[bot] <267617162+fvh-renovate-bot[bot]@users.noreply.github.com>"
   autodiscover: 'true'
   autodiscover-filter: 'ForumViriumHelsinki/*'
 secrets:
