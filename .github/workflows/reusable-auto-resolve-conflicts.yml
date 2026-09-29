@@ -22,12 +22,35 @@ on:
         required: false
         type: string
         default: ''
+      app-id:
+        description: 'GitHub App client ID (or numeric App ID; client ID recommended). When set, uses an App token (via APP_PRIVATE_KEY) instead of RELEASE_PLEASE_TOKEN.'
+        required: false
+        type: string
+        default: ''
+      model:
+        description: 'Claude model that resolves the conflicts'
+        required: false
+        type: string
+        default: 'claude-opus-5-5'
+      effort:
+        description: "Claude effort level, passed as --effort. Set to '' to omit the flag"
+        required: false
+        type: string
+        default: 'medium'
+      skip-release-please:
+        description: 'Leave release-please PRs alone. Set this when the repo also calls reusable-fix-release-conflicts.yml, which closes them and retriggers release-please; both run on push to main and would race to close the same PR.'
+        required: false
+        type: boolean
+        default: false
     secrets:
       CLAUDE_CODE_OAUTH_TOKEN:
         description: 'OAuth token for Claude Code CLI'
         required: true
       RELEASE_PLEASE_TOKEN:
         description: 'PAT with contents:write and pull-requests:write scopes (falls back to GITHUB_TOKEN)'
+        required: false
+      APP_PRIVATE_KEY:
+        description: 'GitHub App private key. Required when app-id is set.'
         required: false
 
 # Only one conflict resolution run at a time per repo
@@ -54,12 +77,15 @@ jobs:
         id: find
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          SKIP_RELEASE_PLEASE: ${{ inputs.skip-release-please }}
         run: |
           if [ -n "${{ inputs.pr_number }}" ]; then
             MATRIX='{"include":[{"pr_number":"${{ inputs.pr_number }}"}]}'
           else
-            PRS=$(gh pr list --repo "${{ github.repository }}" --state open --json number,mergeable \
-              --jq '[.[] | select(.mergeable == "CONFLICTING") | {"pr_number": (.number | tostring)}]')
+            PRS=$(gh pr list --repo "${{ github.repository }}" --state open --json number,mergeable,headRefName \
+              | jq -c --arg skip "$SKIP_RELEASE_PLEASE" '[.[] | select(.mergeable == "CONFLICTING")
+                  | select($skip != "true" or (.headRefName | startswith("release-please--branches--") | not))
+                  | {"pr_number": (.number | tostring)}]')
 
             if [ -z "$PRS" ] || [ "$PRS" = "[]" ]; then
               echo "has_conflicts=false" >> "$GITHUB_OUTPUT"
@@ -89,6 +115,14 @@ jobs:
       max-parallel: 1
       fail-fast: false
     steps:
+      - name: Generate GitHub App token
+        id: app-token
+        if: inputs.app-id != ''
+        uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3.2.0
+        with:
+          client-id: ${{ inputs.app-id }}
+          private-key: ${{ secrets.APP_PRIVATE_KEY }}
+
       - name: Get PR details
         id: pr
         env:
@@ -138,7 +172,7 @@ jobs:
         with:
           ref: ${{ steps.pr.outputs.head_branch }}
           fetch-depth: 0
-          token: ${{ secrets.RELEASE_PLEASE_TOKEN || github.token }}
+          token: ${{ inputs.app-id != '' && steps.app-token.outputs.token || secrets.RELEASE_PLEASE_TOKEN || github.token }}
 
       - name: Attempt merge to surface conflicts
         if: steps.stale_check.outputs.is_stale_automated != 'true'
@@ -168,10 +202,13 @@ jobs:
         if: steps.merge.outputs.has_conflicts == 'true' && steps.stale_check.outputs.is_stale_automated != 'true'
         env:
           CLAUDE_CODE_OAUTH_TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
-          GH_TOKEN: ${{ secrets.RELEASE_PLEASE_TOKEN || github.token }}
+          GH_TOKEN: ${{ inputs.app-id != '' && steps.app-token.outputs.token || secrets.RELEASE_PLEASE_TOKEN || github.token }}
+          MODEL: ${{ inputs.model }}
+          EFFORT: ${{ inputs.effort }}
         run: |
           cat <<'PROMPT_EOF' | npx @anthropic-ai/claude-code --print \
-            --model haiku \
+            --model "$MODEL" \
+            ${EFFORT:+--effort "$EFFORT"} \
             --max-turns 20 \
             --allowedTools "Read,Edit,Grep,Glob,TodoWrite,Bash(git status *),Bash(git diff *),Bash(git log *),Bash(git show *),Bash(git add *),Bash(git commit *),Bash(git push *),Bash(git merge *),Bash(gh pr *),Bash(jq *)" \
             -
