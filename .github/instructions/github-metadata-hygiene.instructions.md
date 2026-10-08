@@ -26,6 +26,7 @@ The FVH org delta:
 | Kyverno Policies | `project:kyverno` | Security policies, admission control |
 | Cost Attribution Tooling | `project:cost-attribution` | `fvh-cost-attribution`, monthly cost reports, FinOps |
 | Internal Tools | `project:internal-tools` | FVH-internal staff tools: `silverbucket-helper`, apps in the `internal-tools` ArgoCD namespace |
+| Agent Workshop | `project:agent-workshop` | `agent-workshop` repo: AI assistants (Gemini gems/skills, agents) for FVH teams — test cases, instructions, evaluation methodology |
 
 **The docs label is `documentation`**, not `docs`.
 
