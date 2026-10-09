@@ -25,6 +25,9 @@ The FVH org delta:
 | Kyverno Policies | `project:kyverno` | Security policies, admission control |
 | Cost Attribution Tooling | `project:cost-attribution` | `fvh-cost-attribution`, monthly cost reports, FinOps |
 | Internal Tools | `project:internal-tools` | FVH-internal staff tools: `silverbucket-helper`, apps in the `internal-tools` ArgoCD namespace |
+| Agent Workshop | `project:agent-workshop` | `agent-workshop` repo: AI assistants (Gemini gems/skills, agents) for FVH teams — test cases, instructions, evaluation methodology |
+
+**Adding a project.** Org projects are not Terraform-managed: create and link one with `gh project create --owner ForumViriumHelsinki` and `gh project link <n> --repo <repo>`. Its `project:*` label is Terraform-managed: add it to `infrastructure/github/labels.tf` and the routing table in `infrastructure/github/CLAUDE.md`, then add a row to the table above and run `rulesync generate`. The label reaches repos only after the `infrastructure-github` apply, so relabel existing items after that. To move items between projects, `gh project item-add` on the new one, then `gh project item-delete` on the old one.
 
 **The docs label is `documentation`**, not `docs`.
 
