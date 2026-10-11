@@ -150,7 +150,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout failed branch
-        uses: actions/checkout@v6
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
           ref: ${{ inputs.branch }}
           fetch-depth: 0
@@ -161,10 +161,13 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           CI_CONTEXT_DIR: ${{ runner.temp }}/ci-failure-context
+          # Caller-controlled text (a fork author picks the branch name): bound
+          # here and read as quoted shell variables, never expanded inside the
+          # script, where GitHub would paste it in before bash parses it.
+          RUN_ID: ${{ inputs.run_id }}
+          BRANCH: ${{ inputs.branch }}
+          PR_NUMBER_INPUT: ${{ inputs.pr_number }}
         run: |
-          RUN_ID="${{ inputs.run_id }}"
-          BRANCH="${{ inputs.branch }}"
-
           # Save failure context to runner temp dir (auto-cleaned by GitHub)
           mkdir -p "${CI_CONTEXT_DIR}"
           echo "context_dir=${CI_CONTEXT_DIR}" >> "$GITHUB_OUTPUT"
@@ -178,7 +181,7 @@ jobs:
             > "${CI_CONTEXT_DIR}/failed-jobs.txt" 2>/dev/null || echo "Could not retrieve job details" > "${CI_CONTEXT_DIR}/failed-jobs.txt"
 
           # Find associated PR number (use input if provided, otherwise detect)
-          PR_NUMBER="${{ inputs.pr_number }}"
+          PR_NUMBER="${PR_NUMBER_INPUT}"
           if [ -z "$PR_NUMBER" ]; then
             PR_NUMBER=$(gh pr list --head "$BRANCH" --json number --jq '.[0].number' 2>/dev/null || echo "")
           fi
@@ -192,6 +195,7 @@ jobs:
         id: dedup
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          MAX_PRS: ${{ inputs.max_auto_fix_prs }}
         run: |
           # Skip if too many open auto-fix PRs already exist
           EXISTING_PRS=$(gh pr list \
@@ -200,7 +204,6 @@ jobs:
             --json number \
             -q 'length')
 
-          MAX_PRS="${{ inputs.max_auto_fix_prs }}"
           if [ "${EXISTING_PRS}" -gt "${MAX_PRS}" ]; then
             echo "skip=true" >> "$GITHUB_OUTPUT"
             echo "::warning::Skipping auto-fix: ${EXISTING_PRS} auto-fix PRs already open (max: ${MAX_PRS})"
