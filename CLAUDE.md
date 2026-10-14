@@ -12,6 +12,7 @@ This is the ForumViriumHelsinki `.github` special repository — the org-wide hu
 
 - `.github/workflows/reusable-*.yml` — 23 reusable workflows callable via `uses: ForumViriumHelsinki/.github/.github/workflows/<name>.yml@main`
 - `.github/workflows/lint.yml`, `.github/tests/`, `justfile` — this repo's own lint gate and workflow tests (see [Testing Workflows](#testing-workflows))
+- `.github/workflows/rules-adoption-report.yml` + `scripts/rules-adoption-report.sh` — weekly read-only report, in the run's job summary, of which org repos carry `.claude/rules/` files matching, drifted from, or absent of this repo's generated copies. Uses a CI App token narrowed to `contents: read`; run the script locally with `GH_TOKEN=$(gh auth token) scripts/rules-adoption-report.sh`
 - `.github/ISSUE_TEMPLATE/` — org-default issue templates (bug report, feature request)
 - `.github/PULL_REQUEST_TEMPLATE.md` — org-default PR template
 - `workflow-templates/` — starter workflows shown in the GitHub Actions "New workflow" UI (each has a `.yml` + `.properties.json` pair)

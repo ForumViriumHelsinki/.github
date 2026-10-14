@@ -1,0 +1,43 @@
+name: AI Rules Adoption Report
+
+# Weekly read-only report of how far .claude/rules/ (generated from
+# .rulesync/rules/) has reached the org's repos (issue #111). The table lands
+# in the run's job summary. Nothing is written to any repository.
+
+on:
+  schedule:
+    - cron: '17 5 * * 1'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  report:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
+        with:
+          persist-credentials: false
+
+      # GITHUB_TOKEN reads only this repo, and five of the repos that carry
+      # .claude/rules/ are private. The CI App is installed on every org repo;
+      # the token is minted for the whole owner but narrowed to contents: read,
+      # so nothing it holds can write. CI_APP_PRIVATE_KEY reaches this repo
+      # through its `release-please` topic in infrastructure github/repos.json.
+      - name: Generate read-only App token
+        id: app-token
+        uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3.2.0
+        with:
+          client-id: ${{ vars.CI_APP_ID }}
+          private-key: ${{ secrets.CI_APP_PRIVATE_KEY }}
+          owner: ${{ github.repository_owner }}
+          permission-contents: read
+
+      # The script fails when the token sees no private repo, rather than
+      # publishing a report with every private repo silently missing.
+      - name: Build report
+        env:
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
+        run: bash scripts/rules-adoption-report.sh "$GITHUB_REPOSITORY_OWNER" >> "$GITHUB_STEP_SUMMARY"
