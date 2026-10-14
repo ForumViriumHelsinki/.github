@@ -2,10 +2,15 @@
 # Pins the two silent-zero-files traps in every rulesync invocation shipped by
 # this repo's workflows and starter templates:
 #
-#   generate  must pass --targets and --features equal to this repo's
-#             rulesync.jsonc. A consuming repo has no rulesync.jsonc (fetch
-#             pulls only .rulesync/), and a bare `generate` then resolves to the
-#             agentsmd target alone and writes zero files at exit 0.
+#   generate  must pass --features equal to this repo's rulesync.jsonc, and
+#             --targets either equal to it or as "$TARGETS", the validated
+#             `targets` input (#111). A consuming repo has no rulesync.jsonc
+#             (fetch pulls only .rulesync/), and a bare `generate` then
+#             resolves to the agentsmd target alone and writes zero files at
+#             exit 0. For the input form, the step's `allowed` list must equal
+#             rulesync.jsonc targets, the input default must be a subset of it,
+#             and the shipped step body is run against a stubbed npx: valid
+#             subsets reach generate verbatim, anything else exits 1 first.
 #   fetch     must pass --path .rulesync. rulesync >= 9 resolves features
 #             against the source repo root, so without it the fetch 404s on
 #             rules/ and returns zero files at exit 0.
@@ -17,9 +22,12 @@ cd "$(git rev-parse --show-toplevel)"
 python3 - <<'PY'
 import glob
 import json
+import os
 import re
 import shlex
+import subprocess
 import sys
+import tempfile
 
 NAME = "sync-ai-rules-targets"
 
@@ -111,6 +119,54 @@ def flag_value(tokens, long, short):
 
 
 failures, assertions, counts = [], 0, {"fetch": 0, "generate": 0}
+input_checked = set()
+
+
+def yq(expr, path):
+    return subprocess.run(["yq", expr, path], check=True, capture_output=True, text=True).stdout.strip()
+
+
+def check_targets_input(path, where):
+    """The `targets` input path: allowed list, default, and step behaviour."""
+    global assertions
+    if path in input_checked:
+        return
+    input_checked.add(path)
+    body = yq('.jobs[].steps[] | select(.run // "" | test("rulesync@\\S+ generate")) | .run', path)
+    m = re.search(r'^\s*allowed="([^"]*)"', body, re.M)
+    assertions += 1
+    if not m:
+        failures.append(f"{where}: --targets \"$TARGETS\" but the step defines no allowed=\"...\" list")
+        return
+    allowed = m.group(1).split()
+    assertions += 1
+    if allowed != want_targets:
+        failures.append(f"{where}: allowed {allowed} != rulesync.jsonc targets {want_targets}")
+    default = yq(".on.workflow_call.inputs.targets.default", path)
+    assertions += 1
+    if default in ("", "null") or not set(default.split(",")) <= set(want_targets):
+        failures.append(f"{where}: targets input default '{default}' is not a non-empty subset of {want_targets}")
+    env_t = yq('.jobs[].steps[] | select(.run // "" | test("rulesync@\\S+ generate")) | .env.TARGETS', path)
+    assertions += 1
+    if env_t != "${{ inputs.targets }}":
+        failures.append(f"{where}: step env TARGETS is '{env_t}', expected '${{{{ inputs.targets }}}}'")
+
+    with tempfile.TemporaryDirectory() as tmp:
+        stub = os.path.join(tmp, "npx")
+        with open(stub, "w") as fh:
+            fh.write('#!/usr/bin/env bash\necho "STUB-NPX $*"\n')
+        os.chmod(stub, 0o755)
+        env = dict(os.environ, PATH=f"{tmp}:{os.environ['PATH']}")
+        cases = [(t, True) for t in [default, ",".join(want_targets), want_targets[-1]]]
+        cases += [(t, False) for t in ["", "agentsmd", f"{want_targets[0]},", f"{want_targets[0]}, {want_targets[1]}", "claudecode;id"]]
+        for value, ok in cases:
+            r = subprocess.run(["bash", "-c", body], env=dict(env, TARGETS=value), capture_output=True, text=True)
+            assertions += 1
+            called = "STUB-NPX" in r.stdout
+            if ok and (r.returncode != 0 or f"STUB-NPX rulesync@latest generate --targets {value} --features" not in r.stdout):
+                failures.append(f"{where}: targets '{value}' should reach generate verbatim; rc={r.returncode} out={r.stdout!r} err={r.stderr!r}")
+            if not ok and (r.returncode == 0 or called):
+                failures.append(f"{where}: targets '{value}' should be refused before generate; rc={r.returncode} out={r.stdout!r}")
 for path in files:
     for lineno, text in logical_lines(path):
         for match in INVOCATION.finditer(text):
@@ -126,7 +182,9 @@ for path in files:
                 got_t = flag_value(tokens, "--targets", "-t")
                 got_f = flag_value(tokens, "--features", "-f")
                 assertions += 2
-                if got_t is None:
+                if got_t == "$TARGETS":
+                    check_targets_input(path, where)
+                elif got_t is None:
                     failures.append(
                         f"{where}: `rulesync generate` has no --targets; a caller without rulesync.jsonc "
                         f"generates only agentsmd (zero files). Expected --targets {','.join(want_targets)}"

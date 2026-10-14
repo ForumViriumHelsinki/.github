@@ -8,6 +8,11 @@ on:
         required: false
         type: string
         default: ''
+      targets:
+        description: 'Comma-separated rulesync targets to generate, from claudecode, copilot, antigravity-ide and cursor. Defaults to Claude Code only; add a target only for a tool this repo actually uses.'
+        required: false
+        type: string
+        default: 'claudecode'
     secrets:
       APP_PRIVATE_KEY:
         description: 'GitHub App private key. Required when app-id is set.'
@@ -57,11 +62,30 @@ jobs:
 
       # Explicit targets/features: fetch pulls only .rulesync/, never
       # rulesync.jsonc, and with no config the default is the agentsmd target
-      # alone, which writes zero files for these rules at exit 0. Keep both
-      # lists equal to this repo's rulesync.jsonc (pinned by
-      # .github/tests/sync-ai-rules-targets/run.sh).
+      # alone, which writes zero files for these rules at exit 0. `allowed`
+      # and --features must equal this repo's rulesync.jsonc, and every input
+      # target must be one of `allowed` (pinned by
+      # .github/tests/sync-ai-rules-targets/run.sh). The #111 pilot found the
+      # three non-Claude trees had no consumer in either pilot repo, hence the
+      # claudecode default.
       - name: Generate tool-specific files
-        run: npx rulesync@latest generate --targets claudecode,copilot,antigravity-ide,cursor --features rules,ignore
+        env:
+          TARGETS: ${{ inputs.targets }}
+        run: |
+          set -euo pipefail
+          allowed=" claudecode copilot antigravity-ide cursor "
+          # `read -a` drops a trailing empty field, so empty elements are refused here.
+          case ",$TARGETS," in
+            *,,*) echo "::error::targets '$TARGETS' is empty or has an empty element; expected a comma-separated subset of:$allowed"; exit 1 ;;
+          esac
+          IFS=',' read -ra requested <<<"$TARGETS"
+          for t in "${requested[@]}"; do
+            case "$allowed" in
+              *" $t "*) ;;
+              *) echo "::error::unknown rulesync target '$t' in targets '$TARGETS'; allowed:$allowed"; exit 1 ;;
+            esac
+          done
+          npx rulesync@latest generate --targets "$TARGETS" --features rules,ignore
 
       - name: Check for changes
         id: changes
@@ -84,14 +108,14 @@ jobs:
             ## Summary
 
             - Synced AI coding rules from `ForumViriumHelsinki/.github` via rulesync
-            - Updated tool-specific config for Claude Code, Copilot, Antigravity CLI, and Cursor
+            - Regenerated tool-specific files for the targets: ${{ inputs.targets }}
 
             ## Test plan
 
             - [ ] Verify `.claude/rules/` files have correct `paths:` frontmatter
-            - [ ] Verify `.github/instructions/` contains `.instructions.md` files
-            - [ ] Verify `.cursor/rules/` contains `.mdc` files
-            - [ ] Verify every `.agents/rules/` file starts with `trigger:` frontmatter (Antigravity ignores rules without it)
+            - [ ] If `copilot` is a target: `.github/instructions/` contains `.instructions.md` files
+            - [ ] If `cursor` is a target: `.cursor/rules/` contains `.mdc` files
+            - [ ] If `antigravity-ide` is a target: every `.agents/rules/` file starts with `trigger:` frontmatter (Antigravity ignores rules without it)
             - [ ] Check the `.claude/settings.json` diff: generation replaces every `Read(...)` entry in `permissions.deny` with the synced `.aiignore` set and keeps the other entries, so a `Read(...)` deny this repo added by hand is dropped
 
             🤖 Generated with rulesync
