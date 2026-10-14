@@ -56,12 +56,14 @@ from openfeature import api
 from gofeatureflag_python_provider.provider import GoFeatureFlagProvider
 from gofeatureflag_python_provider.options import GoFeatureFlagOptions
 
-api.set_provider(GoFeatureFlagProvider(
-    options=GoFeatureFlagOptions(
-        endpoint=os.environ.get("FEATURE_FLAG_ENDPOINT"),
-        api_key=os.environ.get("GOFF_CLIENT_ID"),
+api.set_provider(
+    GoFeatureFlagProvider(
+        options=GoFeatureFlagOptions(
+            endpoint=os.environ.get("FEATURE_FLAG_ENDPOINT"),
+            api_key=os.environ.get("GOFF_CLIENT_ID"),
+        )
     )
-))
+)
 ```
 
 `GoFeatureFlagProvider` takes a single `options=` argument — passing `endpoint=` / `api_key=` as direct keyword arguments raises a pydantic validation error. The provider handles `X-API-Key` header injection automatically.
