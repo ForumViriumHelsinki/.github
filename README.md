@@ -173,6 +173,18 @@ jobs:
 
 Each run fetches `.rulesync/` from this repository into the calling repo, regenerates the per-tool files, and opens a PR on branch `chore/sync-ai-rules` when anything changed. The fetched `.rulesync/` copy is committed in the consuming repo too — rulesync generates from a local source tree, so the rules have to land there before `generate` can read them.
 
+By default the PR is opened with `GITHUB_TOKEN`. In a repo where "Allow GitHub Actions to create and approve pull requests" is off (GitHub's default), that fails with `GitHub Actions is not permitted to create or approve pull requests`, and a PR `GITHUB_TOKEN` does open triggers no CI. Pass a GitHub App to open it with an App token instead:
+
+```yaml
+jobs:
+  sync:
+    uses: ForumViriumHelsinki/.github/.github/workflows/reusable-sync-ai-rules.yml@main
+    with:
+      app-id: ${{ vars.CI_APP_ID }}
+    secrets:
+      APP_PRIVATE_KEY: ${{ secrets.CI_APP_PRIVATE_KEY }}
+```
+
 **The workflow does not read the consuming repo's `rulesync.jsonc` for targets or features.** `fetch` pulls only `.rulesync/`, never the config, and a bare `generate` with no config resolves to the `agentsmd` target alone — which no rule's frontmatter lists — so it writes zero files at exit 0. The generate step therefore passes `--targets claudecode,copilot,antigravity-ide,cursor --features rules,ignore`, the same lists as this repository's `rulesync.jsonc`. CLI options take precedence over `rulesync.jsonc` and `rulesync.local.jsonc`, so a consuming repo that commits its own config with different lists still gets these four targets. Options the command line does not set, such as `delete`, are still read from a config if one exists. Against this repository's rules the step writes 62 files: fifteen rules for each of the four targets, plus `.claude/settings.json` and `.cursorignore`. In an existing `.claude/settings.json`, generation replaces every `Read(...)` entry in `permissions.deny` with the fetched `.aiignore` set and keeps the other `deny` entries, `allow` and `enabledPlugins`, so a consuming repo's own `Read(...)` denies are dropped on each sync.
 
 ### Running a sync by hand
