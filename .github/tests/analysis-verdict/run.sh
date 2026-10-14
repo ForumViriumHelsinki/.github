@@ -121,7 +121,44 @@ for WF in "${workflows[@]}"; do
     fail "verdict step body differs from the one in ${workflows[0]}"
   fi
 
-  # 4. Behaviour.
+  # 4. What a caller sees on the warning path. The shipped publish step runs
+  #    first (same guard) and degrades to zeroed counts, so the job ends green
+  #    with every count output '0', not '': indistinguishable from a clean
+  #    scan by `result` and counts alone. Pinned so the docs cannot drift.
+  CASE="$WF_SHORT/caller-view"
+  awk '
+    /^      - name: Publish findings$/ { inpub = 1 }
+    inpub && /^        run: \|$/       { inrun = 1; next }
+    inrun && /^      [-#]/             { inrun = 0; inpub = 0 }
+    inrun                              { print }
+  ' "$WF" | sed 's/^          //' > "$work/publish.sh"
+  ok
+  if [ ! -s "$work/publish.sh" ]; then
+    fail "no 'Publish findings' step found"
+  else
+    keys="$(yq '[.jobs.*.steps[] | select(.id == "publish")] | .[0].env.COUNT_KEYS' "$WF")"
+    rm -rf "$work/pub" && mkdir -p "$work/pub"
+    set +e
+    # Same execution file the verdict step classifies below: both steps
+    # read it, so the caller's view is pinned on one input.
+    GITHUB_OUTPUT="$work/pub/output" GITHUB_STEP_SUMMARY="$work/pub/summary.md" \
+      RUNNER_TEMP="$work/pub" EXECUTION_FILE="$work/no-verdict.json" \
+      ANALYZE_OUTCOME=failure TITLE='Test Analysis' \
+      BLOCKING_SEVERITIES="$(yq '[.jobs.*.steps[] | select(.id == "publish")] | .[0].env.BLOCKING_SEVERITIES' "$WF")" \
+      COUNT_KEYS="$keys" bash "$work/publish.sh" > "$work/pub/out.txt" 2>&1
+    RC=$?
+    set -e
+    OUT="$work/pub/out.txt"
+    assert_rc 0
+    assert_in "$work/pub/output" 'blocking=0'
+    for k in ${keys//,/ }; do
+      assert_lines "$work/pub/output" "^count_${k}=0\$" 1
+    done
+  fi
+  run_case caller-view-verdict failure no-verdict.json
+  assert_rc 0
+
+  # 5. Behaviour.
   run_case no-structured-output failure no-verdict.json
   assert_rc 0
   assert_lines "$OUT" '^::warning::' 1
@@ -141,6 +178,9 @@ for WF in "${workflows[@]}"; do
   run_case output-present-but-step-failed failure verdict.json
   assert_rc 1
   assert_in "$OUT" 'the action failed the step anyway'
+  # The publish block reads the same file, so these findings WERE
+  # published; the verdict must not claim otherwise.
+  assert_in "$OUT" 'published from its execution file'
 
   run_case is-error failure is-error.json
   assert_rc 1
