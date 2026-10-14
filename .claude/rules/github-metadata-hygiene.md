@@ -23,6 +23,7 @@ The FVH org delta:
 | Platform Automation | `project:platform-automation` | Terraform, ArgoCD, platform tooling, infrastructure repo |
 | Kyverno Policies | `project:kyverno` | Security policies, admission control |
 | Cost Attribution Tooling | `project:cost-attribution` | `fvh-cost-attribution`, monthly cost reports, FinOps |
+| FVH Data Pipe | `project:data-pipe` | `fvh-data-pipe` repo, `sensor-pipeline` ArgoCD apps, sensor/IoT ingestion (Digita, ThingPark), Kafka/Redpanda decommission (ADR-0039) |
 | Internal Tools | `project:internal-tools` | FVH-internal staff tools: `silverbucket-helper`, apps in the `internal-tools` ArgoCD namespace |
 | Agent Workshop | `project:agent-workshop` | `agent-workshop` repo: AI assistants (Gemini gems/skills, agents) for FVH teams — test cases, instructions, evaluation methodology |
 
