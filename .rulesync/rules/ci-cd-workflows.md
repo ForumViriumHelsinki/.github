@@ -98,6 +98,8 @@ secrets:
 
 A repo whose `auto-fix.yml` passes no `PAT_TOKEN` needs `allowed-bots: "github-actions"` on these callers. Without a PAT, `reusable-auto-fix.yml` pushes Claude's fix with `github.token`, so the next `pull_request` run has `github-actions[bot]` as its actor. GitHub holds that run for approval, and once a maintainer approves it, claude-code-action refuses it with `Workflow initiated by non-human actor: github-actions (type: Bot)`. The action strips `[bot]` before comparing, so `github-actions` matches. In thelma this was 10 of 21 failed a11y reviews over 90 days (thelma#1641).
 
+The same refusal hits PRs that a GitHub App opens, such as the AI rules sync PRs from the CI App. On the `claude-review.yml` caller, set `allowed_bots: 'claude[bot],claude,forumviriumhelsinki-ci'`: the value replaces the default `claude[bot],claude` instead of extending it (fvh-data-pipe#72).
+
 ## Adoption Audit
 
 When opening, editing, or reviewing a workflow file in any FVH application repo, briefly scan the rest of `.github/workflows/` and surface adoption gaps:
