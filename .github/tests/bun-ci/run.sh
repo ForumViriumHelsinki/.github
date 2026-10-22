@@ -49,7 +49,7 @@ BASELINE='reusable-a11y-aria.yml 2
 reusable-a11y-wcag.yml 2
 reusable-auto-fix.yml 2
 reusable-auto-merge-image-updater.yml 2
-reusable-auto-resolve-conflicts.yml 1
+reusable-auto-resolve-conflicts.yml 0
 reusable-container-build.yml 4
 reusable-container-release.yml 3
 reusable-fix-release-conflicts.yml 1
