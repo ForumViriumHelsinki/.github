@@ -1,3 +1,109 @@
 {
-  "$schema": "https://docs.renovatebot.com/renovate-schema.json"
+  "$schema": "https://docs.renovatebot.com/renovate-schema.json",
+  "customManagers": [
+    {
+      "customType": "regex",
+      "description": "rulesync: one exact version in the workflows, the justfile and the docs that show the command",
+      "managerFilePatterns": [
+        ".github/workflows/*.yml",
+        ".github/workflows/*.yaml",
+        "workflow-templates/*.yml",
+        "justfile",
+        "README.md",
+        "CLAUDE.md"
+      ],
+      "matchStrings": [
+        "rulesync@(?<currentValue>\\d+\\.\\d+\\.\\d+)",
+        "rulesync_version := \"(?<currentValue>[^\"]+)\""
+      ],
+      "depNameTemplate": "rulesync",
+      "datasourceTemplate": "npm"
+    },
+    {
+      "customType": "regex",
+      "description": "actionlint: the checksum-pinned release binary in the workflows, and the justfile's mise pin",
+      "managerFilePatterns": [
+        ".github/workflows/*.yml",
+        ".github/workflows/*.yaml",
+        "justfile"
+      ],
+      "matchStrings": [
+        "ACTIONLINT_VERSION: '(?<currentValue>[^']+)'",
+        "actionlint_version := \"(?<currentValue>[^\"]+)\""
+      ],
+      "depNameTemplate": "rhysd/actionlint",
+      "datasourceTemplate": "github-releases",
+      "extractVersionTemplate": "^v(?<version>.*)$"
+    },
+    {
+      "customType": "regex",
+      "description": "gitleaks: the checksum-pinned release binary in the workflows, and the justfile's mise pin",
+      "managerFilePatterns": [
+        ".github/workflows/*.yml",
+        ".github/workflows/*.yaml",
+        "justfile"
+      ],
+      "matchStrings": [
+        "GITLEAKS_VERSION: '(?<currentValue>[^']+)'",
+        "gitleaks_version := \"(?<currentValue>[^\"]+)\""
+      ],
+      "depNameTemplate": "gitleaks/gitleaks",
+      "datasourceTemplate": "github-releases",
+      "extractVersionTemplate": "^v(?<version>.*)$"
+    },
+    {
+      "customType": "regex",
+      "description": "ruff: the checksum-pinned release binary in lint.yml, and the justfile's uvx/mise pin",
+      "managerFilePatterns": [
+        ".github/workflows/*.yml",
+        ".github/workflows/*.yaml",
+        "justfile"
+      ],
+      "matchStrings": [
+        "RUFF_VERSION: '(?<currentValue>[^']+)'",
+        "ruff_version := \"(?<currentValue>[^\"]+)\""
+      ],
+      "depNameTemplate": "astral-sh/ruff",
+      "datasourceTemplate": "github-releases"
+    }
+  ],
+  "packageRules": [
+    {
+      "description": "rulesync ships a major almost daily. Wait a week and batch weekly. Consumers run reusable-sync-ai-rules.yml at @main, so a merged bump reaches every caller: lint.yml's generate --check guards this repo's copies, and its 'Consumer sync path' step guards the callers' config-less fetch + generate.",
+      "matchManagers": ["custom.regex"],
+      "matchDepNames": ["rulesync"],
+      "groupName": "rulesync",
+      "minimumReleaseAge": "7 days",
+      "schedule": ["* 0-5 * * 1"],
+      "prBodyNotes": [
+        "Consumers run `reusable-sync-ai-rules.yml` at `@main`, so this bump reaches every caller on merge. Lint's `Consumer sync path (fetch + generate)` step runs that workflow's fetch, verify and generate steps with the new version against this repo's default branch; it must be green, not only `generate --check`. It does not cover caller-specific inputs such as a narrower `targets`."
+      ]
+    },
+    {
+      "matchManagers": ["custom.regex"],
+      "matchDepNames": ["rhysd/actionlint"],
+      "groupName": "actionlint",
+      "prBodyNotes": [
+        "Renovate cannot recompute the release checksum. Update `ACTIONLINT_SHA256` in every workflow that sets `ACTIONLINT_VERSION` by hand: `curl -fsSL https://github.com/rhysd/actionlint/releases/download/v{{{newVersion}}}/actionlint_{{{newVersion}}}_linux_amd64.tar.gz | sha256sum`. Until then the `sha256sum -c` step fails, so this PR stays red (fails closed)."
+      ]
+    },
+    {
+      "matchManagers": ["custom.regex"],
+      "matchDepNames": ["gitleaks/gitleaks"],
+      "groupName": "gitleaks",
+      "prBodyNotes": [
+        "Renovate cannot recompute the release checksum. Update `GITLEAKS_SHA256` in every workflow that sets `GITLEAKS_VERSION` by hand: `curl -fsSL https://github.com/gitleaks/gitleaks/releases/download/v{{{newVersion}}}/gitleaks_{{{newVersion}}}_linux_x64.tar.gz | sha256sum`. Until then the `sha256sum -c` step fails, so this PR stays red (fails closed)."
+      ]
+    },
+    {
+      "description": "ruff must match the version FVH consumers run over their trees (the formatter's Markdown output changes between versions), so a bump is approved deliberately from the dependency dashboard.",
+      "matchManagers": ["custom.regex"],
+      "matchDepNames": ["astral-sh/ruff"],
+      "groupName": "ruff",
+      "dependencyDashboardApproval": true,
+      "prBodyNotes": [
+        "Renovate cannot recompute the release checksum. Update `RUFF_SHA256` in .github/workflows/lint.yml by hand: `curl -fsSL https://github.com/astral-sh/ruff/releases/download/{{{newVersion}}}/ruff-x86_64-unknown-linux-gnu.tar.gz | sha256sum`. Until then the `sha256sum -c` step fails, so this PR stays red (fails closed)."
+      ]
+    }
+  ]
 }

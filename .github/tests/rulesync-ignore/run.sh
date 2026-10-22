@@ -116,10 +116,10 @@ for pat in src_patterns:
 # 3. Generated copies in sync with the source.
 for gen in (".cursorignore",):
     with open(gen) as f:
-        check(f.read().strip() == aiignore.strip(), f"{gen} differs from .rulesync/.aiignore; run npx rulesync@latest generate")
+        check(f.read().strip() == aiignore.strip(), f"{gen} differs from .rulesync/.aiignore; run just rules-generate")
 root_read = sorted(p for e, p in root_denies if e.startswith("Read("))
 check(root_read == sorted(src_patterns),
-      f".claude/settings.json Read denies {root_read} != .aiignore patterns {sorted(src_patterns)}; run npx rulesync@latest generate")
+      f".claude/settings.json Read denies {root_read} != .aiignore patterns {sorted(src_patterns)}; run just rules-generate")
 
 # 4. Class-wide scan.
 tracked = [t for t in os.environ["TRACKED"].splitlines() if t]

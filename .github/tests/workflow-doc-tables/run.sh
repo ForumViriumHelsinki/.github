@@ -6,9 +6,8 @@
 # read with yq (ubuntu-slim ships yq; it does not ship PyYAML).
 # Documentation under test: the rulesync sources of the CI/CD rules
 # (.rulesync/rules/ci-cd-*.md, read as one document). The four
-# generated copies are covered by `npx rulesync generate --check`, which no CI
-# workflow in this repo runs yet; until one does, a hand edit to a generated
-# copy is not caught.
+# generated copies are covered by lint.yml's pinned `rulesync generate --check`
+# step, which fails on a hand edit to a generated copy.
 #
 # Only names, types and defaults are checked. Prose describing a value (e.g.
 # what an output holds when it is not set) is not.

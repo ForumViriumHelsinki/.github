@@ -2,8 +2,17 @@ name: Lint
 
 # Every FVH repo calls the reusable workflows here at `@main`, so a broken file
 # on main breaks its callers on their next run. This job is the gate in front of
-# main: YAML validity, actionlint, gitleaks, rulesync drift, and the tests under
-# .github/tests/. `just lint` and `just test` run the same commands locally.
+# main: YAML validity, actionlint, gitleaks, rulesync drift, ruff format of the
+# Python blocks in the rule sources, the consumers' rulesync fetch + generate,
+# and the tests under .github/tests/. `just lint` and `just test` run the same
+# commands locally, and `just sync-smoke` the consumer path.
+#
+# Each tool this job fetches is pinned to an exact version, and each
+# downloaded binary to a sha256 too (yq and Node come with the runner image).
+# renovate.json tracks the versions (tool-pins pins its regexes); Renovate
+# cannot recompute a checksum, so a bump PR stays red at `sha256sum -c`
+# until the matching *_SHA256 is updated by hand:
+#   curl -fsSL <release asset url> | sha256sum
 
 on:
   pull_request:
@@ -41,6 +50,7 @@ jobs:
           echo "All ${#files[@]} workflow and template files are valid YAML."
 
       - name: actionlint
+        # ACTIONLINT_VERSION is bumped by Renovate; ACTIONLINT_SHA256 by hand.
         env:
           ACTIONLINT_VERSION: '1.7.12'
           ACTIONLINT_SHA256: '8aca8db96f1b94770f1b0d72b6dddcb1ebb8123cb3712530b08cc387b349a3d8'
@@ -60,6 +70,7 @@ jobs:
       # git history is not rescanned. Also puts gitleaks on PATH for the
       # public-identifiers test.
       - name: gitleaks
+        # GITLEAKS_VERSION is bumped by Renovate; GITLEAKS_SHA256 by hand.
         env:
           GITLEAKS_VERSION: '8.30.1'
           GITLEAKS_SHA256: '551f6fc83ea457d62a0d98237cbad105af8d557003051f41f3e7ca7b3f2470eb'
@@ -72,8 +83,80 @@ jobs:
           echo "$RUNNER_TEMP/bin" >> "$GITHUB_PATH"
           "$RUNNER_TEMP/bin/gitleaks" dir --no-banner --redact --config .gitleaks.toml .
 
+      # The same rulesync version as reusable-sync-ai-rules.yml and the
+      # justfile; rulesync ships majors almost daily, and a floating version
+      # turned this step red with no change here (#126).
       - name: rulesync generated files are current
-        run: npx --yes rulesync@latest generate --check
+        run: npx --yes rulesync@40.2.0 generate --check
+
+      # Consumers that run `ruff format --check` over their tree also format
+      # Python blocks inside Markdown, so a rule snippet not in ruff style
+      # fails their sync PR (google-chat-agent#322, #176). Only the source is
+      # checked: `rulesync generate --check` above ties the generated copies,
+      # and so their code blocks, to it. `--isolated --line-length 88` and
+      # the version match what those consumers run, so RUFF_VERSION is
+      # bumped deliberately (Renovate waits for approval on the dependency
+      # dashboard); RUFF_SHA256 by hand.
+      - name: ruff format (Python blocks in rule Markdown)
+        env:
+          RUFF_VERSION: '0.16.9'
+          RUFF_SHA256: '1bfbb819b5d4f9af501748862276b60e412d336034d99387691a4d4bce7a6f13'
+        run: |
+          set -euo pipefail
+          curl -fsSL -o /tmp/ruff.tgz "https://github.com/astral-sh/ruff/releases/download/${RUFF_VERSION}/ruff-x86_64-unknown-linux-gnu.tar.gz"
+          echo "${RUFF_SHA256}  /tmp/ruff.tgz" | sha256sum -c -
+          tar -xzf /tmp/ruff.tgz -C /tmp --strip-components=1 ruff-x86_64-unknown-linux-gnu/ruff
+          /tmp/ruff format --check --diff --isolated --line-length 88 .rulesync/rules
+
+      # `generate --check` above reads this repo's rulesync.jsonc, so it says
+      # nothing about what consumers run: a config-less fetch + generate at
+      # @main. This step runs those shipped steps of reusable-sync-ai-rules.yml
+      # (extracted with yq, not retyped) with this checkout's version of the
+      # workflow, in an empty scratch repo, never at the root (generate would
+      # overwrite CLAUDE.md). The fetch reads the default branch, as consumers
+      # do, so a rulesync bump PR is checked against what will ship. Every
+      # target must then hold one generated file per fetched rule, because a
+      # rulesync that changes fetch or the no-config defaults fails at exit 0
+      # with zero files. GITHUB_TOKEN only lifts the API rate limit.
+      # consumer-sync-smoke pins this step; `just sync-smoke` runs it locally.
+      - name: Consumer sync path (fetch + generate)
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+          SYNC_WORKFLOW: .github/workflows/reusable-sync-ai-rules.yml
+          TARGETS: claudecode,copilot,antigravity-ide,cursor
+        run: |
+          set -euo pipefail
+          wf=$(realpath "$SYNC_WORKFLOW")
+          work=$(mktemp -d)
+          mkdir "$work/repo"
+          i=0
+          for name in "Fetch rules from .github repo" "Verify rules were fetched" "Generate tool-specific files"; do
+            body=$(NAME="$name" yq '.jobs[].steps[] | select(.name == strenv(NAME)) | .run // ""' "$wf")
+            [ -n "$body" ] || { echo "::error file=$SYNC_WORKFLOW::no run step named '$name'; update this step with the workflow"; exit 1; }
+            i=$((i + 1))
+            printf '%s\n' "$body" >"$work/$i.sh"
+          done
+          cd "$work/repo"
+          git init -q .
+          for step in "$work"/[0-9].sh; do
+            bash --noprofile --norc -eo pipefail "$step"
+          done
+          # rulesync target -> output directory and file suffix
+          n=$(find .rulesync/rules -name '*.md' | wc -l)
+          IFS=',' read -ra targets <<<"$TARGETS"
+          for t in "${targets[@]}"; do
+            case "$t" in
+              claudecode) out=.claude/rules suffix=.md ;;
+              copilot) out=.github/instructions suffix=.instructions.md ;;
+              antigravity-ide) out=.agents/rules suffix=.md ;;
+              cursor) out=.cursor/rules suffix=.mdc ;;
+              *) echo "::error::no expected output directory for target '$t'"; exit 1 ;;
+            esac
+            got=0
+            [ ! -d "$out" ] || got=$(find "$out" -name "*$suffix" | wc -l)
+            [ "$got" -eq "$n" ] || { echo "::error::target $t: $got file(s) under $out for $n fetched rule(s)"; exit 1; }
+          done
+          echo "Consumer sync path: fetched $n rule(s); every target generated one file per rule."
 
       - name: Workflow tests
         run: bash .github/tests/run.sh

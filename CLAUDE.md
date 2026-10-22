@@ -88,13 +88,13 @@ Application repos pull these rules via the `reusable-sync-ai-rules.yml` workflow
 To regenerate locally after editing rules:
 
 ```bash
-npx rulesync@latest generate
+npx rulesync@40.2.0 generate
 ```
 
 To validate generated files are in sync (CI):
 
 ```bash
-npx rulesync@latest generate --check
+npx rulesync@40.2.0 generate --check
 ```
 
 Edit `.rulesync/rules/*.md` directly, then run `generate` and `generate --check`, and commit the source change and its regenerated copies in one commit. `.rulesync/.aiignore` deliberately does not list `.rulesync/` or `rulesync.jsonc`: every line there becomes a `Read(...)` deny in `.claude/settings.json`, which also blocks Edit, Write and path-naming Bash commands, and Claude Code auto-loads only CLAUDE.md files, `.claude/rules/` and `@` imports ([memory docs](https://code.claude.com/docs/en/memory)), so the sources are never loaded twice. Generation replaces every `Read(...)` deny in `.claude/settings.json` with the `.aiignore` set, so add ignore patterns to `.aiignore`, not to `settings.json`.
@@ -104,10 +104,14 @@ Edit `.rulesync/rules/*.md` directly, then run `generate` and `generate --check`
 `.github/workflows/lint.yml` gates every PR and push to `main`. Run the same checks locally before pushing:
 
 ```bash
-just lint                     # yq YAML check + actionlint -shellcheck= + gitleaks dir + rulesync generate --check
+just lint                     # yq YAML check + actionlint -shellcheck= + gitleaks dir + rulesync generate --check + ruff format --check .rulesync/rules
+just rules-generate           # regenerate the rule copies with the pinned rulesync
+just sync-smoke               # lint.yml's consumer sync path: shipped fetch + generate in a scratch repo (network, GitHub token)
 just test                     # every .github/tests/<name>/run.sh, via .github/tests/run.sh
 just test workflow-contract   # one test by name
 ```
+
+**Toolchain pins.** rulesync (`rulesync_version`, and the literal `rulesync@X.Y.Z` in `lint.yml`, `reusable-sync-ai-rules.yml`, README.md and this file), actionlint, gitleaks and ruff (`*_VERSION`/`*_SHA256` env in `lint.yml`, `<tool>_version` in the `justfile`) are exact versions that `renovate.json` regex managers bump together. `tool-pins` fails on an `@latest` or unversioned rulesync run, a version that differs between files, a malformed checksum, or a manager regex that no longer matches every pin site. Renovate cannot recompute a release checksum, so a binary bump PR fails `sha256sum -c` until the `*_SHA256` is edited by hand (fails closed). ruff is pinned to what FVH consumers run over their trees, so its bump waits for dependency-dashboard approval; `just lint` runs it only through `uvx` or `mise`, never a `ruff` on PATH (`ruff-rules-pin`). `generate --check` reads this repo's `rulesync.jsonc` and so does not cover consumers, who run a config-less fetch + generate at `@main`; lint.yml's `Consumer sync path` step runs those shipped steps of `reusable-sync-ai-rules.yml` (by step name) against the default branch in a scratch repo and requires one generated file per rule for every target, which is what catches a rulesync bump that changes fetch (`consumer-sync-smoke`).
 
 Tests live in `.github/tests/<name>/run.sh` and follow the convention in `.github/tests/README.md`: bash with `set -euo pipefail`, run from the repo root, extract the shipped text out of the workflow file rather than retyping it, stub CLIs with a sentinel, scan every `reusable-*.yml` for the defect class, and prove the test fails on the pre-fix tree before opening the PR. The discovery runner fails when it finds zero tests.
 

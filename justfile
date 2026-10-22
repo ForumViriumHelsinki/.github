@@ -3,13 +3,18 @@
 
 set positional-arguments
 
+# Tool pins. Each must equal its lint.yml counterpart (the tool-pins test
+# checks this); renovate.json bumps both together.
 actionlint_version := "1.7.12"
+gitleaks_version := "8.30.1"
+ruff_version := "0.16.9"
+rulesync_version := "40.2.0"
 
 # List recipes
 default:
     @just --list
 
-# YAML validity, actionlint, gitleaks, and rulesync drift (same checks as CI)
+# YAML validity, actionlint, gitleaks, rulesync drift, and ruff format of the rule sources (same checks as CI)
 lint:
     #!/usr/bin/env bash
     set -euo pipefail
@@ -31,9 +36,41 @@ lint:
     "${al[@]}" -shellcheck= -oneline "${files[@]}"
     echo "actionlint: clean"
     # Scans the working tree, including untracked scratch under tmp/.
-    command -v gitleaks >/dev/null || { echo "gitleaks not found: mise use -g aqua:gitleaks/gitleaks" >&2; exit 1; }
-    gitleaks dir --no-banner --redact --config .gitleaks.toml .
-    npx --yes rulesync@latest generate --check
+    if command -v mise >/dev/null 2>&1; then
+        gl=(mise exec "aqua:gitleaks/gitleaks@{{ gitleaks_version }}" -- gitleaks)
+    elif command -v gitleaks >/dev/null 2>&1; then
+        gl=(gitleaks)
+    else
+        echo "gitleaks not found: install mise or gitleaks {{ gitleaks_version }}" >&2
+        exit 1
+    fi
+    "${gl[@]}" dir --no-banner --redact --config .gitleaks.toml .
+    npx --yes "rulesync@{{ rulesync_version }}" generate --check
+    # Python blocks in the rule sources, as consumers' ruff formats them. No
+    # fallback to a ruff on PATH: another version formats Markdown differently.
+    if command -v uvx >/dev/null 2>&1; then
+        rf=(uvx "ruff@{{ ruff_version }}")
+    elif command -v mise >/dev/null 2>&1; then
+        rf=(mise exec "aqua:astral-sh/ruff@{{ ruff_version }}" -- ruff)
+    else
+        echo "ruff not found: install uv or mise (ruff {{ ruff_version }} is run through either)" >&2
+        exit 1
+    fi
+    "${rf[@]}" format --check --diff --isolated --line-length 88 .rulesync/rules
+
+# Run lint.yml's consumer sync path step (the shipped rulesync fetch + generate of reusable-sync-ai-rules.yml) in a scratch repo; needs network and a GitHub token
+sync-smoke:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    step='Consumer sync path (fetch + generate)'
+    body=$(STEP="$step" yq '.jobs.lint.steps[] | select(.name == strenv(STEP)) | .run // ""' .github/workflows/lint.yml)
+    [ -n "$body" ] || { echo "no step named '$step' in lint.yml" >&2; exit 1; }
+    eval "$(STEP="$step" yq '.jobs.lint.steps[] | select(.name == strenv(STEP)) | .env | del(.GITHUB_TOKEN) | to_entries | .[] | "export " + .key + "=" + (.value | @sh)' .github/workflows/lint.yml)"
+    GITHUB_TOKEN=${GITHUB_TOKEN:-$(gh auth token)} bash --noprofile --norc -eo pipefail -c "$body"
+
+# Regenerate the tool-specific rule copies from .rulesync/ with the pinned rulesync
+rules-generate:
+    npx --yes "rulesync@{{ rulesync_version }}" generate
 
 # Run every test under .github/tests/, or only the named ones
 test *names:
