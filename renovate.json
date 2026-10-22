@@ -37,7 +37,7 @@
     },
     {
       "customType": "regex",
-      "description": "gitleaks: the checksum-pinned release binary in the workflows, and the justfile's mise pin",
+      "description": "gitleaks: the checksum-pinned release binary in the workflows (lint.yml and reusable-gitleaks.yml), and the justfile's mise pin",
       "managerFilePatterns": [
         ".github/workflows/*.yml",
         ".github/workflows/*.yaml",

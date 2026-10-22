@@ -37,6 +37,7 @@ Call these from any FVH repo using `uses: ForumViriumHelsinki/.github/.github/wo
 | `reusable-enforce-conventional-commits.yml` | Auto-fix PR titles to conventional-commit format (github-script, no AI) |
 | `reusable-npm-publish.yml` | Publish an npm package via OIDC trusted publishing (no `NPM_TOKEN`; the caller's job grants `id-token: write`) |
 | `reusable-bun-ci.yml` | Pull-request gate for bun/TypeScript repos: `bun install --frozen-lockfile`, then the repo's own typecheck (opt-in), test and build commands; optional coverage artifact; no secrets |
+| `reusable-gitleaks.yml` | For public repos: gitleaks over the checked-out tree with the default rules plus the FVH GCP-identifier rule from `.gitleaks.toml` (embedded, drift-tested); `enforcement: block\|warn`; release binary, no secrets |
 | `reusable-claude.yml` | Claude Code @-mention support in issues and PRs |
 
 ### Automation (Claude-powered)
@@ -128,7 +129,7 @@ jobs:
 
 Every FVH repo calls these workflows at `@main`, so `.github/workflows/lint.yml` checks each PR and push to `main`: every workflow and template parses as YAML, actionlint and gitleaks pass, the generated rule copies match `.rulesync/rules/`, the Python blocks in `.rulesync/rules/` are in ruff 0.16.9 style (`--isolated --line-length 88`, as the consuming repos that run `ruff format --check` see them), the shipped fetch and generate steps of `reusable-sync-ai-rules.yml` produce one file per rule for every target in a scratch repo (the path consumers run, which reads no `rulesync.jsonc`), and every test under `.github/tests/` passes. `just lint` and `just test` run the same commands locally, and `just sync-smoke` (network and a GitHub token) the consumer path.
 
-The tools that gate fetches run at exact versions (yq and Node come with the runner image): rulesync in `lint.yml`, `reusable-sync-ai-rules.yml`, the `justfile` and the commands in this README, and actionlint, gitleaks and ruff in `lint.yml` (with a sha256) and the `justfile`. `renovate.json` bumps each one across its files in a single PR, and the `tool-pins` test fails when any of them disagree or a Renovate regex stops matching. Renovate cannot recompute a checksum, so an actionlint, gitleaks or ruff bump stays red at `sha256sum -c` until the matching `*_SHA256` is updated by hand; the PR body says how. The test convention is in [`.github/tests/README.md`](.github/tests/README.md).
+The tools that gate fetches run at exact versions (yq and Node come with the runner image): rulesync in `lint.yml`, `reusable-sync-ai-rules.yml`, the `justfile` and the commands in this README, and actionlint, gitleaks and ruff in `lint.yml` (with a sha256; gitleaks also in `reusable-gitleaks.yml`) and the `justfile`. `renovate.json` bumps each one across its files in a single PR, and the `tool-pins` test fails when any of them disagree or a Renovate regex stops matching. Renovate cannot recompute a checksum, so an actionlint, gitleaks or ruff bump stays red at `sha256sum -c` until the matching `*_SHA256` is updated by hand; the PR body says how. The test convention is in [`.github/tests/README.md`](.github/tests/README.md).
 
 ## AI Coding Rules — syncing with rulesync
 

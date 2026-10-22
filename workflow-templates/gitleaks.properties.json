@@ -1,0 +1,6 @@
+{
+  "name": "Gitleaks",
+  "description": "For public repositories: scan the tree for secrets and FVH GCP identifiers (project IDs, Cloud SQL connection names) with gitleaks. A repo .gitleaks.toml must set [extend] useDefault = true to keep the default rules. No secrets needed.",
+  "iconName": "octicon shield-lock",
+  "categories": ["Security"]
+}

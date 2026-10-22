@@ -12,7 +12,10 @@
 #   actionlint, gitleaks, ruff
 #               every <TOOL>_VERSION env in a workflow equals the justfile's
 #               <tool>_version, and is X.Y.Z; every <TOOL>_SHA256 is 64 hex
-#               characters and agrees across workflows.
+#               characters and agrees across workflows. A step that downloads
+#               a tool's release asset must carry both env pins, so a copied
+#               install (reusable-gitleaks.yml's, #149) cannot hard-code a
+#               version that neither the agreement check nor Renovate sees.
 #   renovate.json
 #               every regex customManager's matchStrings, converted from
 #               Renovate's (?<name>) to Python's (?P<name>), match at least once
@@ -157,6 +160,14 @@ for tool in TOOLS:
         if body.strip():
             check(f"${{{key}_SHA256}}" in body and "sha256sum -c" in body,
                   f"{path}: the step with {key}_VERSION does not verify ${{{key}_SHA256}} with sha256sum -c")
+    # Every step that downloads the release asset is pinned through env.
+    download = f"github.com/{TOOLS[tool]}/releases/download/"
+    for path in workflows:
+        unpinned = yq(
+            f'[.jobs[].steps[] | select(.run // "" | contains("{download}"))'
+            f' | select(.env.{key}_VERSION == null or .env.{key}_SHA256 == null) | .name // "(unnamed)"]'
+            ' | join(", ")', path).strip()
+        check(not unpinned, f"{path}: step(s) {unpinned} download {download} without {key}_VERSION and {key}_SHA256 env pins")
 
 # ------------------------------------------------------------ renovate.json
 try:

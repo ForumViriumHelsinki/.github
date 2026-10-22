@@ -51,6 +51,7 @@ SECTION_MAP = {
     "Claude Workflow Inputs": "reusable-claude.yml",
     "npm Publish Workflow Inputs": "reusable-npm-publish.yml",
     "Bun CI Workflow Inputs": "reusable-bun-ci.yml",
+    "Gitleaks Workflow Inputs": "reusable-gitleaks.yml",
 }
 
 # A default longer than this may be documented as "see workflow" instead of
