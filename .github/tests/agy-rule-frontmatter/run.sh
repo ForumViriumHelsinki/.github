@@ -59,7 +59,7 @@ for src in sources:
 check(targeted == {os.path.basename(g) for g in generated},
       f".agents/rules does not match the rule sources targeting antigravity-ide: "
       f"missing {sorted(targeted - {os.path.basename(g) for g in generated})}, "
-      f"stale {sorted({os.path.basename(g) for g in generated} - targeted)}; run npx rulesync@latest generate")
+      f"stale {sorted({os.path.basename(g) for g in generated} - targeted)}; run just rules-generate")
 
 for path in generated:
     fm = frontmatter(path)

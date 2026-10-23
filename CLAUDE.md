@@ -10,7 +10,7 @@ This is the ForumViriumHelsinki `.github` special repository — the org-wide hu
 
 ### Directory Layout
 
-- `.github/workflows/reusable-*.yml` — 23 reusable workflows callable via `uses: ForumViriumHelsinki/.github/.github/workflows/<name>.yml@main`
+- `.github/workflows/reusable-*.yml` — 24 reusable workflows callable via `uses: ForumViriumHelsinki/.github/.github/workflows/<name>.yml@main`
 - `.github/workflows/lint.yml`, `.github/tests/`, `justfile` — this repo's own lint gate and workflow tests (see [Testing Workflows](#testing-workflows))
 - `.github/workflows/rules-adoption-report.yml` + `scripts/rules-adoption-report.sh` — weekly read-only report, in the run's job summary, of which org repos carry `.claude/rules/` files matching, drifted from, or absent of this repo's generated copies. Uses a CI App token narrowed to `contents: read`; run the script locally with `GH_TOKEN=$(gh auth token) scripts/rules-adoption-report.sh`
 - `.github/ISSUE_TEMPLATE/` — org-default issue templates (bug report, feature request)
@@ -33,6 +33,7 @@ This is the ForumViriumHelsinki `.github` special repository — the org-wide hu
 - `reusable-renovate.yml` — Dependency updates
 - `reusable-npm-publish.yml` — Publishes an npm package via OIDC trusted publishing (no `NPM_TOKEN`); npm version pinned, build-time env passed as `KEY=VALUE` blocks
 - `reusable-bun-ci.yml` — Pull-request gate for bun/TypeScript repos: frozen-lockfile install, then the repo's own typecheck (opt-in), test and build commands; optional coverage artifact; no secrets
+- `reusable-gitleaks.yml` — For public repos (#149): the gitleaks release binary over the caller's checked-out tree, with the default rules plus `fvh-gcp-project-id`, which otherwise protects only this repo. The rule is embedded between `# BEGIN`/`# END fvh-gcp-project-id` markers rather than fetched, because a called workflow cannot learn its own ref (`github.workflow_sha` is the caller's) and a fetched config would float at `@main` for a SHA-pinned caller; `gitleaks-reusable` fails when the block drifts from `.gitleaks.toml` (`[[rules]]` to EOF) or the install step from lint.yml's. The caller's `config-path` is extended as gitleaks reads it, so the default rules run only if that file sets `useDefault = true`, and the run warns when it does not. Findings exit 2 (`--exit-code 2`), because gitleaks exits 1 on every error. `enforcement` is validated (`block` or `warn`); `warn` softens findings only. `Scan` has no `continue-on-error` and fails in both modes when gitleaks exits other than 0 or 2 or leaves no readable report; the last step, `Enforce`, only fails on a non-zero count and is the one step with `continue-on-error`, so a broken scan is never a green job under `warn`. Scoping the rollout to public repos (infrastructure `github/repos.json`) is done in the infrastructure repo
 
 **Claude-powered (all use `anthropics/claude-code-action@v1`):**
 - `reusable-claude.yml` — @-mention support in issues/PRs
@@ -70,6 +71,7 @@ Release images are signed with cosign keyless (Sigstore OIDC) and scanned with T
 - **Concurrency groups**: Claude-powered workflows use `cancel-in-progress: false` to avoid interrupting AI analysis.
 - **Auto-fix loop prevention**: The auto-fix workflow skips if a recent `fix(auto):` commit exists on the branch.
 - **No `${{ }}` inside an auto-fix `run:` body**: callers pass `workflow_run.head_branch`, which a fork author chooses, and GitHub pastes an expression's value into the script before bash parses it. Inputs are bound in the step's `env:` and read as quoted shell variables. `.github/tests/auto-fix-inline-expr/run.sh` checks every `run:` body in `reusable-auto-fix.yml` and runs the failure-context step with a hostile branch name.
+- **No `${{ }}` in `reusable-claude.yml`'s failure path either**: `Detect failure type` reads only the execution file, bound through `env:`, and the continuation comment's github-script reads its five values from `process.env`, because the SDK's error text can carry a `'`. The action's `structured_output` is deliberately unused there: upstream sets it only on a successful run, and it is the caller's `--json-schema` object, not an SDK result. `.github/tests/claude-failure-type/run.sh` scans every script body in the job and runs both extracted steps against hostile execution files.
 - **`additional_permissions` is a permissions map, not a tool list**: `anthropics/claude-code-action` reads it as `key: value` lines (`actions: read`) for its App token and skips any line without a colon, so a Claude tool list there is silently inert. Tools go in an `allowed_tools` input composed into `claude_args` as `--allowedTools "..."` (repeated `--allowedTools` flags accumulate). The `github_ci` MCP server checks the job's `GITHUB_TOKEN`, so a workflow that runs in tag mode (`track_progress: true`, or no `prompt`) needs `actions: read` in its `permissions:` block; `additional_permissions` cannot substitute. `.github/tests/claude-action-permissions/run.sh` checks both rules.
 
 ## Conventions
@@ -88,13 +90,13 @@ Application repos pull these rules via the `reusable-sync-ai-rules.yml` workflow
 To regenerate locally after editing rules:
 
 ```bash
-npx rulesync@latest generate
+npx rulesync@40.2.0 generate
 ```
 
 To validate generated files are in sync (CI):
 
 ```bash
-npx rulesync@latest generate --check
+npx rulesync@40.2.0 generate --check
 ```
 
 Edit `.rulesync/rules/*.md` directly, then run `generate` and `generate --check`, and commit the source change and its regenerated copies in one commit. `.rulesync/.aiignore` deliberately does not list `.rulesync/` or `rulesync.jsonc`: every line there becomes a `Read(...)` deny in `.claude/settings.json`, which also blocks Edit, Write and path-naming Bash commands, and Claude Code auto-loads only CLAUDE.md files, `.claude/rules/` and `@` imports ([memory docs](https://code.claude.com/docs/en/memory)), so the sources are never loaded twice. Generation replaces every `Read(...)` deny in `.claude/settings.json` with the `.aiignore` set, so add ignore patterns to `.aiignore`, not to `settings.json`.
@@ -104,13 +106,17 @@ Edit `.rulesync/rules/*.md` directly, then run `generate` and `generate --check`
 `.github/workflows/lint.yml` gates every PR and push to `main`. Run the same checks locally before pushing:
 
 ```bash
-just lint                     # yq YAML check + actionlint -shellcheck= + gitleaks dir + rulesync generate --check
+just lint                     # yq YAML check + actionlint -shellcheck= + gitleaks dir + rulesync generate --check + ruff format --check .rulesync/rules
+just rules-generate           # regenerate the rule copies with the pinned rulesync
+just sync-smoke               # lint.yml's consumer sync path: shipped fetch + generate in a scratch repo (network, GitHub token)
 just test                     # every .github/tests/<name>/run.sh, via .github/tests/run.sh
 just test workflow-contract   # one test by name
 ```
+
+**Toolchain pins.** rulesync (`rulesync_version`, and the literal `rulesync@X.Y.Z` in `lint.yml`, `reusable-sync-ai-rules.yml`, README.md and this file), actionlint, gitleaks and ruff (`*_VERSION`/`*_SHA256` env in `lint.yml`, and for gitleaks also `reusable-gitleaks.yml`; `<tool>_version` in the `justfile`) are exact versions that `renovate.json` regex managers bump together. `tool-pins` fails on an `@latest` or unversioned rulesync run, a version that differs between files, a malformed checksum, a step that downloads a tool's release without both env pins, or a manager regex that no longer matches every pin site. Renovate cannot recompute a release checksum, so a binary bump PR fails `sha256sum -c` until the `*_SHA256` is edited by hand (fails closed). ruff is pinned to what FVH consumers run over their trees, so its bump waits for dependency-dashboard approval; `just lint` runs it only through `uvx` or `mise`, never a `ruff` on PATH (`ruff-rules-pin`). `generate --check` reads this repo's `rulesync.jsonc` and so does not cover consumers, who run a config-less fetch + generate at `@main`; lint.yml's `Consumer sync path` step runs those shipped steps of `reusable-sync-ai-rules.yml` (by step name) against the default branch in a scratch repo and requires one generated file per rule for every target, which is what catches a rulesync bump that changes fetch (`consumer-sync-smoke`).
 
 Tests live in `.github/tests/<name>/run.sh` and follow the convention in `.github/tests/README.md`: bash with `set -euo pipefail`, run from the repo root, extract the shipped text out of the workflow file rather than retyping it, stub CLIs with a sentinel, scan every `reusable-*.yml` for the defect class, and prove the test fails on the pre-fix tree before opening the PR. The discovery runner fails when it finds zero tests.
 
 Behaviour that only a real run shows is still validated by pointing a calling repo's `@main` at a feature branch temporarily, or with a workflow dispatch, and by reading the run logs after merge.
 
-The Claude analysis workflows have five tests of their own: `publish-drift` (wraps `scripts/check-publish-drift.sh 8`), `publish-findings` and `analysis-verdict`, which run fixtures against the step bodies extracted from every workflow that passes `--json-schema`, and `analysis-contract`, which checks the same workflows' schema (`findings` required), prompt (no "Leave a PR comment"), job outputs and numeric union gates, and `event-guard`, which runs the extracted trigger guard per event and checks that every step up to the analysis is gated on it.
+The Claude analysis workflows have five tests of their own: `publish-drift` (wraps `scripts/check-publish-drift.sh 8`, and fails any `--json-schema` workflow whose publish-block comments bring back the stale wording replaced in the port of laurigates/.github#79: an unqualified `#47`, "only produced denials", "~10 annotations", a trailing "Unverified", "drift check compares" or "byte-for-byte with laurigates/.github"; it also asserts that it visited all eight workflows), `publish-findings` and `analysis-verdict`, which run fixtures against the step bodies extracted from every workflow that passes `--json-schema`, and `analysis-contract`, which checks the same workflows' schema (`findings` required), prompt (no "Leave a PR comment"), job outputs and numeric union gates, and `event-guard`, which runs the extracted trigger guard per event and checks that every step up to the analysis is gated on it.

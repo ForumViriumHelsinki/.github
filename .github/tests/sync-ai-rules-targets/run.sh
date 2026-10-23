@@ -105,7 +105,8 @@ def logical_lines(path):
         yield start, buf
 
 
-# Matches `rulesync`, `rulesync@latest`, `rulesync@1.2.3`, `npx -y rulesync generate`, ...
+# Matches a rulesync fetch or generate with or without an @<version> suffix,
+# run directly or through npx and its flags. tool-pins checks the version.
 INVOCATION = re.compile(r"(?:^|[\s;&|(`'\"])rulesync(?:@\S+)?\s+(fetch|generate)\b([^;&|\n]*)")
 
 
@@ -151,6 +152,14 @@ def check_targets_input(path, where):
     if env_t != "${{ inputs.targets }}":
         failures.append(f"{where}: step env TARGETS is '{env_t}', expected '${{{{ inputs.targets }}}}'")
 
+    # The pinned version is read from the shipped body (tool-pins checks it),
+    # so a Renovate bump of the pin does not break this test.
+    pin = re.search(r"\brulesync@(\S+) generate\b", body)
+    assertions += 1
+    if not pin:
+        failures.append(f"{where}: the generate step runs no `rulesync@<version> generate`")
+        return
+    want_call = f"STUB-NPX rulesync@{pin.group(1)} generate --targets"
     with tempfile.TemporaryDirectory() as tmp:
         stub = os.path.join(tmp, "npx")
         with open(stub, "w") as fh:
@@ -163,7 +172,7 @@ def check_targets_input(path, where):
             r = subprocess.run(["bash", "-c", body], env=dict(env, TARGETS=value), capture_output=True, text=True)
             assertions += 1
             called = "STUB-NPX" in r.stdout
-            if ok and (r.returncode != 0 or f"STUB-NPX rulesync@latest generate --targets {value} --features" not in r.stdout):
+            if ok and (r.returncode != 0 or f"{want_call} {value} --features" not in r.stdout):
                 failures.append(f"{where}: targets '{value}' should reach generate verbatim; rc={r.returncode} out={r.stdout!r} err={r.stderr!r}")
             if not ok and (r.returncode == 0 or called):
                 failures.append(f"{where}: targets '{value}' should be refused before generate; rc={r.returncode} out={r.stdout!r}")

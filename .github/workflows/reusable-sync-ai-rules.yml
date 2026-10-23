@@ -48,8 +48,13 @@ jobs:
       # --path .rulesync: rulesync >= 9 resolves features relative to the repo
       # root of the source repo (GET /contents/rules), so the .rulesync/ layout
       # must be addressed explicitly or the fetch 404s and returns zero files.
+      # rulesync is pinned (here, in Generate below and in lint.yml's
+      # generate --check) to the version this repo's generated copies were
+      # checked with; renovate.json bumps all of them together. lint.yml's
+      # "Consumer sync path" step runs this step, "Verify rules were fetched"
+      # and "Generate tool-specific files" by name, so a rename must update it.
       - name: Fetch rules from .github repo
-        run: npx rulesync@latest fetch ForumViriumHelsinki/.github --features rules,ignore --conflict overwrite --path .rulesync
+        run: npx rulesync@40.2.0 fetch ForumViriumHelsinki/.github --features rules,ignore --conflict overwrite --path .rulesync
 
       # fetch exits 0 even when it fetches nothing, and generate then fails
       # (or silently no-ops) — fail fast with a pointer to the rules source.
@@ -85,7 +90,7 @@ jobs:
               *) echo "::error::unknown rulesync target '$t' in targets '$TARGETS'; allowed:$allowed"; exit 1 ;;
             esac
           done
-          npx rulesync@latest generate --targets "$TARGETS" --features rules,ignore
+          npx rulesync@40.2.0 generate --targets "$TARGETS" --features rules,ignore
 
       - name: Check for changes
         id: changes
