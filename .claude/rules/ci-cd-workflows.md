@@ -25,6 +25,7 @@ uses: ForumViriumHelsinki/.github/.github/workflows/<name>.yml@main
 | `container-release.yml` | `reusable-container-release.yml` | Published release (release phase) | — |
 | `auto-merge-image-updater.yml` | `reusable-auto-merge-image-updater.yml` | `image-updater-**` branches | `AUTO_MERGE_PAT` or `app-id` + `APP_PRIVATE_KEY` |
 | `claude.yml` | `reusable-claude.yml` | Issue/PR @-mentions | `CLAUDE_CODE_OAUTH_TOKEN` (org secret; requires the `claude` topic in infrastructure `github/repos.json`) |
+| `gitleaks.yml` (public repos) | `reusable-gitleaks.yml` | PR + push to `main` | — (no secrets, no `claude` topic) |
 
 **Renovate is not a per-repo workflow.** It runs centrally from the infrastructure repo's `.github/workflows/renovate.yml`, which autodiscovers every `ForumViriumHelsinki/*` repository (infrastructure ADR-0036). Application repos may carry only a `renovate.json`; see dependency-automation.md.
 
@@ -80,6 +81,21 @@ with:
 secrets:
   APP_PRIVATE_KEY: ${{ secrets.RENOVATE_APP_PRIVATE_KEY }}
 ```
+
+### Gitleaks Workflow Inputs
+
+`reusable-gitleaks.yml` scans the checked-out tree (not history) with the gitleaks default rules plus `fvh-gcp-project-id`, which flags FVH GCP project IDs and Cloud SQL connection names: write `my-project` / `my-instance` in examples. Starter template: `gitleaks.yml`.
+
+| Input | Type | Default | Description |
+|-------|------|---------|-------------|
+| `enforcement` | string | `block` | `block` fails the job on findings; `warn` annotates them as warnings and keeps the job green. A scan that does not complete (bad config, gitleaks error) fails the job in both modes. Any other value fails |
+| `config-path` | string | `.gitleaks.toml` | The repo's own config, extended when present and read as written: the default rules run only if it sets `[extend] useDefault = true` (the run warns when it does not). A missing non-default path fails |
+| `runner` | string | `ubuntu-slim` | Runner label |
+
+Outputs:
+- `findings` — number of findings; empty when the scan did not complete.
+
+Start a repo that may already hold identifiers on `warn`, then switch to `block`.
 
 ### Optional Workflows (Claude-Powered)
 

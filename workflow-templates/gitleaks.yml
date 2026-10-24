@@ -1,0 +1,30 @@
+name: Gitleaks
+
+# For public repositories: blocks secrets and FVH GCP identifiers (project IDs,
+# Cloud SQL connection names) in the checked-out tree. The FVH rule is built
+# into the reusable workflow; a .gitleaks.toml at the repository root is
+# extended, so its rules and allowlists still apply. That file switches off
+# gitleaks' default secret rules unless it sets
+#
+#   [extend]
+#   useDefault = true
+#
+# (an allowlist-only file needs it too); the run warns when it does not.
+
+on:
+  pull_request:
+  push:
+    branches: [$default-branch]
+
+permissions:
+  contents: read
+
+jobs:
+  gitleaks:
+    uses: ForumViriumHelsinki/.github/.github/workflows/reusable-gitleaks.yml@main
+    # Uncomment to customize (defaults shown). Start with `enforcement: warn`
+    # if the repo may already hold findings, and switch to block once clean.
+    # with:
+    #   enforcement: block           # or warn: annotate, keep the job green
+    #   config-path: .gitleaks.toml  # extended when present
+    #   runner: ubuntu-slim

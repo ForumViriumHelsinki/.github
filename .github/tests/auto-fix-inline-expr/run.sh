@@ -19,9 +19,11 @@
 #      against stub gh with a hostile branch name: the payload must not
 #      execute and the name must reach gh verbatim.
 #
-# Scope: this workflow only. Other reusable workflows still have `${{ }}` in
-# run: bodies; most of those carry values the caller does not take from an
-# event payload, and each needs its own review before a class-wide scan.
+# Scope: this workflow only. reusable-claude.yml's job gets the same scan,
+# github-script bodies included, from the claude-failure-type test. Other
+# reusable workflows still have `${{ }}` in run: bodies; most of those carry
+# values the caller does not take from an event payload, and each needs its
+# own review before a class-wide scan.
 set -euo pipefail
 cd "$(git rev-parse --show-toplevel)"
 

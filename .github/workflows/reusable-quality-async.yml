@@ -243,8 +243,9 @@ jobs:
       # ---- BEGIN shared publish block (checked by scripts/check-publish-drift.sh) ----
       # Findings reach humans through the job summary and file annotations,
       # never a PR comment: the action is granted no comment tool, so asking
-      # Claude to post one only produced denials and discarded the findings
-      # (issue #47). Both channels work with the permissions the job holds.
+      # Claude to post one gave it no tool to post with, and the findings
+      # were discarded (laurigates/.github#47). Both channels work with the
+      # permissions the job holds.
       #
       # Guard is `outcome != 'skipped'`, not `== 'success'`: a failed run can
       # still carry findings. The action sets its `structured_output` output
@@ -280,8 +281,9 @@ jobs:
           # as a file, never as an env or argv string, so the kernel's
           # per-string MAX_ARG_STRLEN no longer bounds it.
           SUMMARY_MAX_BYTES=900000
-          # GitHub surfaces ~10 annotations per level per step. Unverified
-          # exact figure; the summary always carries the complete list.
+          # GitHub surfaces at most 10 annotations per level per step and 50
+          # per job (actions/toolkit docs/problem-matchers.md); the summary
+          # always carries the complete list.
           ANNOTATION_LIMIT=10
 
           # The payload is the last `result` message's structured_output,
@@ -453,8 +455,8 @@ jobs:
       # and a success run with no structured_output is green even when it
       # overran --max-turns (the action's own overrun check), because this
       # step does not compare num_turns with max-turns.
-      # Outside the shared publish block on purpose: the drift check compares
-      # that block byte-for-byte with laurigates/.github.
+      # Outside the shared publish block on purpose, so the block stays
+      # byte-identical to the copies it is drift-checked against.
       - name: Classify analysis outcome
         id: verdict
         if: ${{ !cancelled() && steps.analyze.outcome != 'skipped' }}
