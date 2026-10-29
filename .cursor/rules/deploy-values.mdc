@@ -46,10 +46,13 @@ initContainers:
     args:
       - "--structured-logs"
       - "--auto-iam-authn"
+      - "--private-ip" # VPC address via servicenetworking peering, not the public IP through Cloud NAT
       - "my-project:europe-north1:my-instance"
     securityContext:
       runAsNonRoot: true
 ```
+
+When Django or psycopg reports `server closed the connection unexpectedly` against `127.0.0.1:5432`, the proxy accepted the local connection and then failed to reach the instance. The database itself may be healthy. The cause is in the `cloud-sql-proxy` container logs once the routine `Accepted connection` and `client closed the connection` lines are filtered out (e.g. `dial tcp <ip>:3307: i/o timeout`). If the dial fails, check Cloud NAT logs for `DROPPED` allocations (run a control query without the destination filter), and check whether the failures cluster on particular nodes. fvh-data-pipe#84 is a worked example.
 
 ### Environment Variables
 
