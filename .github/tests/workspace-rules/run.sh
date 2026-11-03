@@ -15,7 +15,12 @@
 #   4. A rule deleted from the source is removed on the next run; the
 #      workspace's own rule survives both runs.
 #   5. A manifest line naming a path outside the rules dir is not followed.
-#   6. A clone with no generated rules fails non-zero.
+#   6. ws/CLAUDE.md gains exactly `@.github/workspace/CLAUDE.md`, which resolves
+#      (relative to the importing file) to the shipped guide.
+#   7. An existing CLAUDE.md, last line without a newline, keeps its content and
+#      gains the import once across two runs.
+#   8. With DEST elsewhere, the import is the guide's absolute path.
+#   9. A clone with no generated rules fails non-zero.
 set -euo pipefail
 
 cd "$(git rev-parse --show-toplevel)"
@@ -46,6 +51,8 @@ cp scripts/workspace-rules.sh "$ws/.github/scripts/"
 cp "${generated[@]}" "$ws/.github/.claude/rules/"
 # The sources too, so a script reading .rulesync/rules fails assertion 2, not "no rules found".
 cp .rulesync/rules/*.md "$ws/.github/.rulesync/rules/"
+mkdir -p "$ws/.github/workspace"
+cp workspace/CLAUDE.md "$ws/.github/workspace/"
 echo "# workspace-owned" >"$ws/.claude/rules/own.md"
 dst="$ws/.claude/rules"
 
@@ -80,7 +87,30 @@ bash "$ws/.github/scripts/workspace-rules.sh" >/dev/null
 [ -f "$ws/.claude/outside.md" ] || fail "manifest line ../outside.md deleted a file outside the rules dir"
 ok
 
-# 6. Empty source fails
+# 6. Import line in a fresh workspace
+[ "$(cat "$ws/CLAUDE.md")" = "@.github/workspace/CLAUDE.md" ] || fail "ws/CLAUDE.md is not exactly the import line: $(cat "$ws/CLAUDE.md")"
+cmp -s "$ws/.github/workspace/CLAUDE.md" "$ws/$(sed 's/^@//' "$ws/CLAUDE.md")" || fail "import does not resolve to the shipped guide"
+ok
+
+# 7. Existing CLAUDE.md preserved, import added once
+ws2="$scratch/ws2"
+mkdir -p "$ws2"
+cp -R "$ws/.github" "$ws2/.github"
+printf '# mine' >"$ws2/CLAUDE.md"
+bash "$ws2/.github/scripts/workspace-rules.sh" >/dev/null
+bash "$ws2/.github/scripts/workspace-rules.sh" >/dev/null
+[ "$(cat "$ws2/CLAUDE.md")" = "$(printf '# mine\n@.github/workspace/CLAUDE.md')" ] || fail "existing CLAUDE.md not preserved with one import appended: $(cat "$ws2/CLAUDE.md")"
+ok
+
+# 8. DEST elsewhere gets an absolute import
+other="$scratch/other"
+mkdir -p "$other"
+bash "$ws/.github/scripts/workspace-rules.sh" "$other" >/dev/null
+guide_abs="$(cd "$ws/.github/workspace" && pwd)/CLAUDE.md"
+[ "$(cat "$other/CLAUDE.md")" = "@$guide_abs" ] || fail "DEST elsewhere: expected @$guide_abs, got $(cat "$other/CLAUDE.md")"
+ok
+
+# 9. Empty source fails
 rm "$ws/.github/.claude/rules/"*.md
 if bash "$ws/.github/scripts/workspace-rules.sh" >/dev/null 2>&1; then
   fail "script exited 0 with no generated rules to copy"
