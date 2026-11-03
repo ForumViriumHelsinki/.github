@@ -52,6 +52,16 @@ For the GitHub organization, send your team lead your GitHub username, creating 
 
 Both the infrastructure repository and its wiki are private, so those links return "not found" until your GitHub account is a member.
 
+## Setting up Claude Code
+
+If you use Claude Code, give it the org's coding rules and developer guide. Run this in the directory that holds your FVH repos, and start Claude Code from there:
+
+```
+git clone https://github.com/ForumViriumHelsinki/.github.git && bash .github/scripts/workspace-rules.sh
+```
+
+To update later, from the same directory: `git -C .github pull && bash .github/scripts/workspace-rules.sh`. It keeps your own rules and `CLAUDE.md` content; the [README](README.md#using-the-rules-from-a-workspace-directory) has the details. This repository is public, so it works before you have any accounts.
+
 ## Getting help
 
 Open an issue in the relevant repository. Inside the organization, the infrastructure repository has issue templates for questions, incidents and access requests, and the ICT and Google Cloud Chat spaces are where platform questions get answered. For anything security-related, follow [SECURITY.md](SECURITY.md) instead of filing an issue.

@@ -18,6 +18,8 @@ We work primarily with Python, TypeScript/Node.js, and Kubernetes on Google Clou
 
 [DEVELOPERS.md](https://github.com/ForumViriumHelsinki/.github/blob/main/DEVELOPERS.md) covers how we work, what to read first, and which accounts you will need — readable before you have any.
 
+Using Claude Code? The [quick start](https://github.com/ForumViriumHelsinki/.github#quick-start-fvh-rules-and-guide-for-claude-code) sets up the org's coding rules and developer guide in one command.
+
 ## Links
 
 - [Forum Virium Helsinki](https://forumviriumhelsinki.fi)
