@@ -29,6 +29,8 @@ If you have worked on a VM you SSH into and edit in place, the change is real: y
 
 Access is requested for you during onboarding; several of these are still granted by hand, so ask if something is missing after your first week.
 
+For the GitHub organization, send your team lead your GitHub username, creating a free personal account first if you have none. Your lead requests the invitation and your team memberships.
+
 | Account | Used for |
 |---|---|
 | Google Workspace | Mail, calendar, Chat, Drive; also the sign-in for several tools below |
