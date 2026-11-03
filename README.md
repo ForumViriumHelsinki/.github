@@ -2,6 +2,22 @@
 
 Organization-wide GitHub configuration for [Forum Virium Helsinki](https://forumviriumhelsinki.fi).
 
+## Quick start: FVH rules and guide for Claude Code
+
+Run in the directory that holds your FVH repos, and start Claude Code from there:
+
+```
+git clone https://github.com/ForumViriumHelsinki/.github.git && bash .github/scripts/workspace-rules.sh
+```
+
+To update later, from the same directory:
+
+```
+git -C .github pull && bash .github/scripts/workspace-rules.sh
+```
+
+This copies the org's Claude Code rules into `.claude/rules/` and adds one import line for the [developer guide](workspace/CLAUDE.md) to `CLAUDE.md`. Your own rules and `CLAUDE.md` content are kept. Details: [Using the rules from a workspace directory](#using-the-rules-from-a-workspace-directory).
+
 ## What's here
 
 | Path | Purpose |
