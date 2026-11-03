@@ -72,6 +72,10 @@ sync-smoke:
 rules-generate:
     npx --yes "rulesync@{{ rulesync_version }}" generate
 
+# Copy the generated Claude rules into DEST/.claude/rules (default: the directory this clone sits in)
+workspace-rules *dest:
+    @bash scripts/workspace-rules.sh "$@"
+
 # Run every test under .github/tests/, or only the named ones
 test *names:
     @bash .github/tests/run.sh "$@"
