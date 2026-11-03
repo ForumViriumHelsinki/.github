@@ -213,13 +213,15 @@ A consuming repo that commits a copy of this repository's `rulesync.jsonc` can d
 
 ### Using the rules from a workspace directory
 
-If you keep several FVH repos side by side under one directory and start Claude Code from that directory, clone this repository into it and copy the rules up one level:
+If you keep several FVH repos side by side under one directory and start Claude Code from that directory, clone this repository into it and run `workspace-rules`. It copies the rules up one level and imports the developer guide in [`workspace/CLAUDE.md`](workspace/CLAUDE.md) from the directory's `CLAUDE.md`:
 
 ```
 git clone https://github.com/ForumViriumHelsinki/.github.git && just -f .github/justfile workspace-rules
 ```
 
 The recipe runs `scripts/workspace-rules.sh` (or run it with `bash .github/scripts/workspace-rules.sh` where `just` is not installed). It copies `.claude/rules/*.md` into `../.claude/rules/`, or into `DEST/.claude/rules/` with `just workspace-rules DEST`. To update, run `git -C .github pull` and the recipe again. The copied names are recorded in `.claude/rules/.fvh-rules-manifest` and removed before each copy, so a rule deleted here disappears from the workspace, while rules the workspace adds itself are kept. A workspace rule with the same name as one of these is overwritten.
+
+The guide is imported, not copied: the script appends `@.github/workspace/CLAUDE.md` to `../CLAUDE.md`, creating the file if there is none and adding the line only once, so your own `CLAUDE.md` content stays and `git -C .github pull` alone updates the guide. Imports resolve relative to the importing file ([memory docs](https://code.claude.com/docs/en/memory)). With `DEST` somewhere other than the clone's parent the line holds the guide's absolute path. Started from inside one of the repos instead of the workspace directory, Claude Code still loads the parent `CLAUDE.md`, but the import then points outside the working directory and Claude Code asks once to approve it.
 
 The script copies the generated files, not `.rulesync/rules/`: the sources carry `globs:`, which Claude Code ignores, so every rule would load at launch. It copies rather than symlinks, because path-scoped rules do not load through a symlink that points outside the working directory. `github-metadata-hygiene.md` names `laurigates` as the default assignee; tell Claude otherwise in your session or edit your copy, which the next run overwrites.
 
