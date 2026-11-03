@@ -211,6 +211,18 @@ npx rulesync@40.2.0 generate --targets claudecode,copilot,antigravity-ide,cursor
 
 A consuming repo that commits a copy of this repository's `rulesync.jsonc` can drop both flags. `--path .rulesync` is required: rulesync 9 and later resolve features against the source repo's root, so without it the fetch looks for `rules/` at the top level, 404s, and returns zero files at exit 0.
 
+### Using the rules from a workspace directory
+
+If you keep several FVH repos side by side under one directory and start Claude Code from that directory, clone this repository into it and copy the rules up one level:
+
+```
+git clone https://github.com/ForumViriumHelsinki/.github.git && just -f .github/justfile workspace-rules
+```
+
+The recipe runs `scripts/workspace-rules.sh` (or run it with `bash .github/scripts/workspace-rules.sh` where `just` is not installed). It copies `.claude/rules/*.md` into `../.claude/rules/`, or into `DEST/.claude/rules/` with `just workspace-rules DEST`. To update, run `git -C .github pull` and the recipe again. The copied names are recorded in `.claude/rules/.fvh-rules-manifest` and removed before each copy, so a rule deleted here disappears from the workspace, while rules the workspace adds itself are kept. A workspace rule with the same name as one of these is overwritten.
+
+The script copies the generated files, not `.rulesync/rules/`: the sources carry `globs:`, which Claude Code ignores, so every rule would load at launch. It copies rather than symlinks, because path-scoped rules do not load through a symlink that points outside the working directory. `github-metadata-hygiene.md` names `laurigates` as the default assignee; tell Claude otherwise in your session or edit your copy, which the next run overwrites.
+
 ### The generated deny block
 
 Each line of `.rulesync/.aiignore` becomes a `Read(...)` entry in the `permissions.deny` block of the generated `.claude/settings.json`, and a line in `.cursorignore`. The file lists `rulesync.local.jsonc`, `rulesync.lock` and `node_modules/`: untracked, machine-local paths. It does not list `.rulesync/` or `rulesync.jsonc`, because a Claude Code `Read` deny also blocks Edit, Write and Bash commands that name the path ([permissions docs](https://code.claude.com/docs/en/permissions)), which would make the rule sources and the config uneditable in a Claude Code session. Claude Code does not auto-load `.rulesync/`, so the sources are not read twice; Cursor and Antigravity CLI index them as ordinary files.
