@@ -43,7 +43,7 @@ Common hooks across FVH application repos:
 | ------------------------------------ | ------------------------------------------------------------------------- |
 | `commitizen`                         | Enforce conventional commit messages                                      |
 | `biome` / `ruff`                     | Language-specific linting and formatting                                  |
-| `gitleaks`                           | Prevent accidental secret commits (same check as `reusable-gitleaks.yml`) |
+| `gitleaks`                           | Prevent accidental secret commits (the scanner `reusable-gitleaks.yml` runs) |
 | `check-yaml` / `trailing-whitespace` | General file hygiene                                                      |
 | `helm-lint`                          | Validate Helm values (if `deploy/` exists)                                |
 
