@@ -41,13 +41,13 @@ Application justfiles should organize recipes into these groups:
 
 Common hooks across FVH application repos:
 
-| Hook                                 | Purpose                                    |
-| ------------------------------------ | ------------------------------------------ |
-| `commitizen`                         | Enforce conventional commit messages       |
-| `biome` / `ruff`                     | Language-specific linting and formatting   |
-| `detect-secrets`                     | Prevent accidental secret commits          |
-| `check-yaml` / `trailing-whitespace` | General file hygiene                       |
-| `helm-lint`                          | Validate Helm values (if `deploy/` exists) |
+| Hook                                 | Purpose                                                                   |
+| ------------------------------------ | ------------------------------------------------------------------------- |
+| `commitizen`                         | Enforce conventional commit messages                                      |
+| `biome` / `ruff`                     | Language-specific linting and formatting                                  |
+| `gitleaks`                           | Prevent accidental secret commits (same check as `reusable-gitleaks.yml`) |
+| `check-yaml` / `trailing-whitespace` | General file hygiene                                                      |
+| `helm-lint`                          | Validate Helm values (if `deploy/` exists)                                |
 
 Install and run:
 
