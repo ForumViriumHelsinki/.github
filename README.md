@@ -50,7 +50,7 @@ Call these from any FVH repo using `uses: ForumViriumHelsinki/.github/.github/wo
 | `reusable-fix-release-conflicts.yml` | Auto-resolve release-please merge conflicts |
 | `reusable-clear-autorelease-labels.yml` | Manual escape hatch: strip a stale `autorelease: pending` label from closed PRs to unclog release-please |
 | `reusable-renovate.yml` | Dependency updates via Renovate — called centrally from the infrastructure repo only; application repos must not call it |
-| `reusable-enforce-conventional-commits.yml` | Auto-fix PR titles to conventional-commit format (github-script, no AI) |
+| `reusable-enforce-conventional-commits.yml` | Auto-fix PR titles to conventional-commit format (github-script, no AI); opt-in `squash-message-check` parses the squash commit with release-please's parser ([below](#squash-commit-parse-check)) |
 | `reusable-npm-publish.yml` | Publish an npm package via OIDC trusted publishing (no `NPM_TOKEN`; the caller's job grants `id-token: write`) |
 | `reusable-bun-ci.yml` | Pull-request gate for bun/TypeScript repos: `bun install --frozen-lockfile`, then the repo's own typecheck (opt-in), test and build commands; optional coverage artifact; no secrets |
 | `reusable-gitleaks.yml` | For public repos: gitleaks over the checked-out tree with the default rules plus the FVH GCP-identifier rule from `.gitleaks.toml` (embedded, drift-tested); `enforcement: block\|warn`; release binary, no secrets |
@@ -98,6 +98,26 @@ Call these from any FVH repo using `uses: ForumViriumHelsinki/.github/.github/wo
 These eight workflows never post a PR comment; Claude is granted no GitHub write tool. Each finding goes to the run's **job summary** and to a **file annotation** on the PR's Files changed tab (error level for the workflow's blocking severities, warning otherwise). GitHub shows at most 10 annotations per level per step, so the job summary is the complete list. A run that analysed nothing (no changed file matched, or the diff exceeded `max-diff-lines`) says so in its summary, so its green check does not read as a clean scan.
 
 A run in which Claude finishes but returns no structured output ends green with a warning that there is no verdict; re-run it to get one. The job goes red when the analysis itself failed (an API error, the `max-turns` limit, or the `max-budget-usd` ceiling, which defaults to 5 USD), and, when enabled, on blocking findings: `reusable-security-owasp.yml` with `fail-on-critical` (default `true`) and `reusable-security-deps.yml` with `fail-on-high` (default `false`) fail when a blocking finding is itemised or the reported count of them is above zero.
+
+### Squash commit parse check
+
+In a repo with `squash_merge_commit_message = PR_BODY`, the PR description becomes the squash commit body, and GitHub hard-wraps it at 72 columns (outside column-0 fenced code blocks) when it builds the commit. A wrap that puts a mid-sentence call such as `name(` at the start of a line makes release-please's conventional-commit parser throw, and release-please drops the commit: a feat/fix PR merges green and cuts no release. The description as written may parse.
+
+`reusable-enforce-conventional-commits.yml` can check this before merge. With `squash-message-check: warn` (annotate) or `error` (fail the job; default `off`), a second job runs after the title fixer, reads the current title and description from the API, rebuilds the squash message and parses it with `@conventional-commits/parser` at the version `reusable-release-please.yml`'s release-please-action pin bundles. It reports the parser error, the line number and the line. Leave it off in repos that squash with `COMMIT_MESSAGES`.
+
+```yaml
+on:
+  pull_request:
+    types: [opened, edited, synchronize]
+
+jobs:
+  conventional-commits:
+    uses: ForumViriumHelsinki/.github/.github/workflows/reusable-enforce-conventional-commits.yml@main
+    with:
+      squash-message-check: warn
+```
+
+After a drop has happened, `reusable-release-please.yml`'s missed-release step names the commits. Recover by adding a `BEGIN_COMMIT_OVERRIDE` / `END_COMMIT_OVERRIDE` section with the intended message to the merged PR's description and running release-please again with `workflow_dispatch`.
 
 ## Usage Example
 

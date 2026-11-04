@@ -168,11 +168,22 @@ jobs:
           done
 
       # release-please can drop every commit in the pushed range and still exit
-      # green — e.g. its conventional-commit parser throws on a squash body (repos
-      # with squash_merge_commit_message = PR_BODY get the PR description as the
-      # commit body, and a fenced code block there is enough to break the parse).
-      # The symptom is the *absence* of a release PR, indistinguishable from
-      # "nothing releasable landed". This step makes that non-event visible.
+      # green. The symptom is the *absence* of a release PR, indistinguishable
+      # from "nothing releasable landed", so this step makes the non-event
+      # visible and names the likely cause:
+      #   - a parse error: with squash_merge_commit_message = PR_BODY the PR
+      #     description is the commit body, and GitHub hard-wraps it at 72
+      #     columns (outside column-0 fenced blocks). A wrap that puts a
+      #     mid-sentence call such as `name(` at a line start, its parenthesis
+      #     still open, makes release-please's parser read the line as a footer
+      #     and throw; release-please logs that at debug level and drops the
+      #     commit. No fenced block is needed, and the description as written
+      #     may parse (#147, R4C-Cesium-Viewer#1044).
+      #   - no registered package: with `packages` in the config, release-please
+      #     assigns a commit to a package only when it changes a file under that
+      #     package's path (key "." takes everything), so a commit outside every
+      #     path is attributed to none (sites#24). Commits whose files can be
+      #     listed and all fall outside are reported as that, not a parse error.
       - name: Check for releasable commits release-please did not consider
         id: missed-release
         if: >-
@@ -187,6 +198,7 @@ jobs:
           AFTER: ${{ github.sha }}
           MODE: ${{ inputs.missed-release-check }}
           TYPES: ${{ inputs.releasable-types }}
+          CONFIG_FILE: ${{ inputs.config-file }}
         run: |
           set -euo pipefail
 
@@ -217,7 +229,8 @@ jobs:
 
           RELEASABLE=$(printf '%s' "$COMPARE" | jq -c '
             [ .commits[]
-              | { sha: .sha[0:7],
+              | { sha: .sha,
+                  short: .sha[0:7],
                   subject: (.commit.message | split("\n")[0]),
                   message: .commit.message }
               | select(.subject | test("^chore\\((main|master)\\): release") | not)
@@ -236,30 +249,95 @@ jobs:
 
           echo "missed_release=true" >> "$GITHUB_OUTPUT"
 
-          SUBJECTS=$(printf '%s' "$RELEASABLE" | jq -r '.[] | "- `\(.sha)` \(.subject)"')
+          # Package paths from the config at the pushed commit. An unreadable
+          # config, no `packages`, or a root "." package leaves PATHS empty, and
+          # every commit falls through to the parse-error explanation.
+          PATHS='[]'
+          if CONFIG=$(gh api -H 'Accept: application/vnd.github.raw+json' "repos/$REPO/contents/$CONFIG_FILE?ref=$AFTER" 2>/dev/null); then
+            PATHS=$(printf '%s' "$CONFIG" | jq -c '
+              [ (.packages // {}) | keys[] | sub("^\\./"; "") | sub("/+$"; "") ]
+              | if any(. == "." or . == "") then [] else . end' 2>/dev/null || echo '[]')
+          fi
+
+          # A commit is unregistered when its changed files can be listed and
+          # none sits under a package path. A failed lookup or an empty file
+          # list keeps it with the parse-error group.
+          UNREGISTERED='[]'
+          if [ "$(printf '%s' "$PATHS" | jq 'length')" -gt 0 ]; then
+            for sha in $(printf '%s' "$RELEASABLE" | jq -r '.[].sha'); do
+              if ! FILES=$(gh api --paginate "repos/$REPO/commits/$sha" 2>/dev/null | jq -c -s '[.[].files[]?.filename]'); then
+                continue
+              fi
+              if printf '%s' "$FILES" | jq -e --argjson paths "$PATHS" '
+                  length > 0 and all(.[]; . as $f | any($paths[]; . as $p | $f | startswith($p + "/")) | not)' >/dev/null; then
+                UNREGISTERED=$(printf '%s' "$UNREGISTERED" | jq -c --arg sha "$sha" '. + [$sha]')
+              fi
+            done
+          fi
+
+          list() { # jq filter over RELEASABLE -> markdown bullet list
+            printf '%s' "$RELEASABLE" | jq -r --argjson u "$UNREGISTERED" ".[] | select($1) | \"- \`\(.short)\` \(.subject)\""
+          }
+          UNREG_LIST=$(list '.sha as $s | $u | index($s)')
+          PARSE_LIST=$(list '.sha as $s | $u | index($s) | not')
+          UNREG_COUNT=$(printf '%s' "$UNREGISTERED" | jq 'length')
+          PARSE_COUNT=$((COUNT - UNREG_COUNT))
+          PATH_LIST=$(printf '%s' "$PATHS" | jq -r 'map("`" + . + "`") | join(", ")')
 
           {
             echo "### release-please produced no release for $COUNT releasable commit(s)"
             echo
             echo "Pushed range: \`$BEFORE\` → \`$AFTER\`"
             echo
-            echo "$SUBJECTS"
-            echo
-            echo "release-please reported neither a release PR nor a release. The usual"
-            echo "cause is a conventional-commit parse error on one of these commits'"
-            echo "bodies — with \`squash_merge_commit_message = PR_BODY\`, the PR"
-            echo "description becomes the commit body, and a fenced code block there can"
-            echo "throw the parser (\"unexpected token at L:C\"), discarding every commit"
-            echo "in the range."
-            echo
-            echo "Fixes: check this run's release-please log for a parse error, then land"
-            echo "a fence-free commit restating the change, or switch the repo to"
-            echo "\`squash_merge_commit_message = COMMIT_MESSAGES\`."
+            if [ "$UNREG_COUNT" -gt 0 ]; then
+              echo "#### $UNREG_COUNT commit(s) touch no registered package"
+              echo
+              echo "$UNREG_LIST"
+              echo
+              echo "\`$CONFIG_FILE\` registers the package paths $PATH_LIST. release-please"
+              echo "assigns a commit to a package only when the commit changes a file under"
+              echo "that package's path, so these commits count toward no release. Register"
+              echo "the missing package under \`packages\` (and in the manifest), then push a"
+              echo "commit that touches it."
+              echo
+            fi
+            if [ "$PARSE_COUNT" -gt 0 ]; then
+              echo "#### $PARSE_COUNT commit(s) release-please may have failed to parse"
+              echo
+              echo "$PARSE_LIST"
+              echo
+              cat <<'EOF'
+          The usual cause is a conventional-commit parse error that release-please
+          logs at debug level before dropping the commit. With
+          `squash_merge_commit_message = PR_BODY` the PR description becomes the
+          commit body, and GitHub hard-wraps it at 72 columns (outside column-0
+          fenced code blocks) when it builds the squash commit. A wrap that puts a
+          mid-sentence call such as `name(` at the start of a line, with its
+          parenthesis not closed on that line, makes the parser read the line as a
+          footer and throw ("unexpected token ... at L:C"). The description as
+          written can parse cleanly.
+
+          Recover: add a `BEGIN_COMMIT_OVERRIDE` / `END_COMMIT_OVERRIDE` section
+          holding the intended commit message to the merged PR's description, then
+          run release-please again with `workflow_dispatch`. Prevent: switch the
+          repo to `squash_merge_commit_message = COMMIT_MESSAGES`, or set
+          `squash-message-check` on reusable-enforce-conventional-commits.yml to
+          catch it before merge.
+          EOF
+            fi
           } >> "$GITHUB_STEP_SUMMARY"
 
-          echo "$SUBJECTS"
+          [ -z "$UNREG_LIST" ] || echo "$UNREG_LIST"
+          [ -z "$PARSE_LIST" ] || echo "$PARSE_LIST"
 
-          MSG="release-please cut no release despite $COUNT releasable commit(s) in $BEFORE...$AFTER — check the release-please log for a conventional-commit parse error."
+          MSG="release-please cut no release despite $COUNT releasable commit(s) in $BEFORE...$AFTER:"
+          if [ "$UNREG_COUNT" -gt 0 ]; then
+            MSG="$MSG $UNREG_COUNT touch no registered package in $CONFIG_FILE;"
+          fi
+          if [ "$PARSE_COUNT" -gt 0 ]; then
+            MSG="$MSG $PARSE_COUNT likely hit a conventional-commit parse error (a squash body wrapped at 72 columns) — check the release-please log;"
+          fi
+          MSG="${MSG%;}. See the job summary."
           if [ "$MODE" = 'error' ]; then
             echo "::error::$MSG"
             exit 1

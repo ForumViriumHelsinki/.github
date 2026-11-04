@@ -10,6 +10,9 @@ on:
 jobs:
   conventional-commits:
     uses: ForumViriumHelsinki/.github/.github/workflows/reusable-enforce-conventional-commits.yml@main
-    # Uncomment to add custom type aliases:
+    # Uncomment to add custom type aliases, or to parse the squash commit with
+    # release-please's parser (only for squash_merge_commit_message = PR_BODY;
+    # warn annotates, error fails the job):
     # with:
     #   extra_type_aliases: '{"deploy": "ci", "infra": "chore"}'
+    #   squash-message-check: warn

@@ -28,7 +28,7 @@ This is the ForumViriumHelsinki `.github` special repository — the org-wide hu
 **Infrastructure (container lifecycle + release automation):**
 - `reusable-container-build.yml` — PR phase: builds `:next-{version}` pre-release image
 - `reusable-container-release.yml` — Release phase: promotes pre-built image to semver tags + Trivy scan + cosign signing
-- `reusable-release-please.yml` — Automated versioning and changelogs
+- `reusable-release-please.yml` — Automated versioning and changelogs. Its missed-release step (push runs that produce neither a release PR nor a release) names two causes: a parse error, where GitHub's 72-column wrap of a `PR_BODY` squash body puts a mid-sentence call such as `name(` at a line start and release-please's parser throws (no fenced block needed; recovery is a `BEGIN_COMMIT_OVERRIDE` section in the merged PR's description plus a `workflow_dispatch` run), and, with `packages` in the config read at the pushed commit, a releasable commit whose files all sit outside every package path (`.` takes everything), which release-please attributes to no package. `missed-release-message` runs the extracted step against a stub `gh`
 - `reusable-auto-merge-image-updater.yml` — Auto-merges ArgoCD Image Updater PRs
 - `reusable-fix-release-conflicts.yml` — Auto-resolves release-please merge conflicts
 - `reusable-auto-resolve-conflicts.yml` — General conflict resolution
@@ -41,7 +41,7 @@ This is the ForumViriumHelsinki `.github` special repository — the org-wide hu
 - `reusable-claude.yml` — @-mention support in issues/PRs
 - `reusable-claude-review.yml` — Automated PR reviews
 - `reusable-auto-fix.yml` — Analyzes workflow failures, auto-fixes or creates issues
-- `reusable-enforce-conventional-commits.yml` — Auto-fixes PR titles
+- `reusable-enforce-conventional-commits.yml` — Auto-fixes PR titles (github-script, no AI). Opt-in `squash-message-check: off|warn|error` (#147), for repos with `squash_merge_commit_message = PR_BODY` only: a second job (`needs: fix-pr-title`, ubuntu-slim) validates the mode, reads the current title and body from `gh api repos/$REPO/pulls/$N` (the fixer's `GITHUB_TOKEN` edit starts no new run, so the event payload can hold the old title), and calls the composite action `.github/actions/squash-message-check`, referenced fully qualified (`ForumViriumHelsinki/.github/.github/actions/squash-message-check@main`) because a `./` path resolves against the caller's checkout. The action npm-installs `@conventional-commits/parser` alone (its `PARSER_VERSION` must match what the release-please-action pin bundles: v4.4.1 → 0.4.1) and runs `check.mjs`, ported from R4C-Cesium-Viewer#1044, which rebuilds the squash message with GitHub's wrap model (72 columns, column-0 fences left alone, wrapped lines lose their indentation). `squash-message-check` runs the shipped steps against fixture bodies (needs npm registry access) and fails when the two pins drift
 - Security: `reusable-security-{secrets,deps,owasp}.yml`
 - Quality: `reusable-quality-{code-smell,async,typescript}.yml`
 - Accessibility: `reusable-a11y-{aria,wcag}.yml`
