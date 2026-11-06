@@ -33,8 +33,7 @@
  * GITHUB_STEP_SUMMARY when set. Exit 0 when the message parses or MODE=warn,
  * 1 on a parse error under MODE=error, 2 on bad input.
  */
-import { appendFileSync } from 'node:fs'
-import { resolve } from 'node:path'
+import { appendFileSync, realpathSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
 import { parser } from '@conventional-commits/parser'
 
@@ -247,4 +246,7 @@ function main() {
   if (MODE === 'error') process.exit(1)
 }
 
-if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) main()
+// Node reports import.meta.url with symlinks resolved, so compare real paths:
+// on macOS the temp directory sits under the /var -> /private/var symlink, and
+// a plain path comparison there skipped main() and exited 0 without checking.
+if (process.argv[1] && realpathSync(process.argv[1]) === fileURLToPath(import.meta.url)) main()
