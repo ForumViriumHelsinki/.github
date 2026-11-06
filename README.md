@@ -49,7 +49,7 @@ Call these from any FVH repo using `uses: ForumViriumHelsinki/.github/.github/wo
 | `reusable-auto-merge-image-updater.yml` | Auto-merge ArgoCD Image Updater PRs (single-job, push-triggered) |
 | `reusable-fix-release-conflicts.yml` | Auto-resolve release-please merge conflicts |
 | `reusable-clear-autorelease-labels.yml` | Manual escape hatch: strip a stale `autorelease: pending` label from closed PRs to unclog release-please |
-| `reusable-renovate.yml` | Dependency updates via Renovate — called centrally from the infrastructure repo only; application repos must not call it |
+| `reusable-renovate.yml` | Dependency updates via Renovate — called centrally from the infrastructure repo only; application repos must not call it. The optional `ANTHROPIC_API_KEY` secret adds a host rule for `api.anthropic.com` (for a custom datasource tracking Claude model IDs) |
 | `reusable-enforce-conventional-commits.yml` | Auto-fix PR titles to conventional-commit format (github-script, no AI); opt-in `squash-message-check` parses the squash commit with release-please's parser ([below](#squash-commit-parse-check)) |
 | `reusable-npm-publish.yml` | Publish an npm package via OIDC trusted publishing (no `NPM_TOKEN`; the caller's job grants `id-token: write`) |
 | `reusable-bun-ci.yml` | Pull-request gate for bun/TypeScript repos: `bun install --frozen-lockfile`, then the repo's own typecheck (opt-in), test and build commands; optional coverage artifact; no secrets |
