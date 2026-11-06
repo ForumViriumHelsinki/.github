@@ -18,9 +18,10 @@ name: Enforce Conventional Commits (Reusable)
 # blocks) and parses it with release-please's own conventional-commit parser.
 # release-please drops a commit that parser throws on, so a feat/fix PR would
 # merge green and cut no release; the title check alone cannot see this. It
-# runs after the title fixer and reads the title from the API, because a title
-# rewritten with GITHUB_TOKEN starts no new run and the event payload still
-# holds the old one. `warn` annotates; `error` fails the job.
+# runs after the title fixer, also when the fixer fails, and reads the title
+# from the API, because a title rewritten with GITHUB_TOKEN starts no new run
+# and the event payload still holds the old one. `warn` annotates; `error`
+# fails the job.
 #
 # Example caller:
 #
@@ -324,7 +325,11 @@ jobs:
   squash-message-check:
     name: Squash commit parses
     needs: fix-pr-title
-    if: inputs.squash-message-check != 'off'
+    # needs: orders this job after the title fixer, so it reads the fixed title.
+    # !cancelled() keeps it running when the fixer fails (an unfixable title),
+    # so a body that will not parse is reported in the same run instead of
+    # being skipped until the title is fixed (#194).
+    if: ${{ !cancelled() && inputs.squash-message-check != 'off' }}
     # ubuntu-slim: gh, an npm install of one package and a Node script.
     runs-on: ubuntu-slim
     timeout-minutes: 5

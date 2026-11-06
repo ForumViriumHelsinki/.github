@@ -16,7 +16,8 @@
 #     fixture PR bodies, and asserts exit code, reported line number and line;
 #   - pins the parser version to the one release-please-action's pin bundles;
 #   - runs the workflow's shipped mode-validation and PR-read steps;
-#   - checks the job wiring: `needs: fix-pr-title`, the title read from the API
+#   - checks the job wiring: `needs: fix-pr-title` with `!cancelled()` in the
+#     job `if:` (a failed title check must not skip it, #194), the title read from the API
 #     rather than the event payload, a fully qualified `uses:`, and no `${{`
 #     inside any run body.
 #
@@ -197,7 +198,11 @@ CASE=job-wiring
 expect "$(yq -r ".jobs[\"$JOB\"] | has(\"needs\")" "$WORKFLOW")" true "job has needs"
 needs=$(yq -r ".jobs[\"$JOB\"].needs | (select(tag == \"!!seq\") | join(\",\")) // ." "$WORKFLOW")
 expect "$needs" fix-pr-title "needs"
-has "$(yq -r ".jobs[\"$JOB\"].if // \"\"" "$WORKFLOW")" "inputs.squash-message-check != 'off'" "job if"
+job_if=$(yq -r ".jobs[\"$JOB\"].if // \"\"" "$WORKFLOW")
+has "$job_if" "inputs.squash-message-check != 'off'" "job if"
+# #194: without a status function, `needs` implies success(), so a title the
+# fixer cannot repair skips the body check instead of reporting it.
+has "$job_if" "!cancelled()" "job if runs the check when fix-pr-title fails (#194)"
 expect "$(yq -r ".jobs[\"$JOB\"].runs-on" "$WORKFLOW")" ubuntu-slim "runs-on"
 uses=$(yq -r ".jobs[\"$JOB\"].steps[] | select(has(\"uses\")) | .uses" "$WORKFLOW")
 expect "$uses" "ForumViriumHelsinki/.github/.github/actions/squash-message-check@main" "fully qualified uses"

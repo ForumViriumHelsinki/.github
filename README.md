@@ -103,7 +103,7 @@ A run in which Claude finishes but returns no structured output ends green with 
 
 In a repo with `squash_merge_commit_message = PR_BODY`, the PR description becomes the squash commit body, and GitHub hard-wraps it at 72 columns (outside column-0 fenced code blocks) when it builds the commit. A wrap that puts a mid-sentence call such as `name(` at the start of a line makes release-please's conventional-commit parser throw, and release-please drops the commit: a feat/fix PR merges green and cuts no release. The description as written may parse.
 
-`reusable-enforce-conventional-commits.yml` can check this before merge. With `squash-message-check: warn` (annotate) or `error` (fail the job; default `off`), a second job runs after the title fixer, reads the current title and description from the API, rebuilds the squash message and parses it with `@conventional-commits/parser` at the version `reusable-release-please.yml`'s release-please-action pin bundles. It reports the parser error, the line number and the line. Leave it off in repos that squash with `COMMIT_MESSAGES`.
+`reusable-enforce-conventional-commits.yml` can check this before merge. With `squash-message-check: warn` (annotate) or `error` (fail the job; default `off`), a second job runs after the title fixer (also when the title check fails, so both problems show in one run), reads the current title and description from the API, rebuilds the squash message and parses it with `@conventional-commits/parser` at the version `reusable-release-please.yml`'s release-please-action pin bundles. It reports the parser error, the line number and the line. Leave it off in repos that squash with `COMMIT_MESSAGES`.
 
 ```yaml
 on:
