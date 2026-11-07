@@ -68,6 +68,7 @@ When neither `autodiscover` nor `repositories` is set, the workflow scans only t
 
 Secrets:
 - `APP_PRIVATE_KEY` — Renovate App private key. Required iff `app-id` is set.
+- `ANTHROPIC_API_KEY` — optional Claude API key. When set, the workflow adds a host rule that sends it to `api.anthropic.com` as `Authorization: Bearer` with an `anthropic-version` header, for a custom datasource that reads `GET /v1/models`. Use a workspace-scoped key: the rule sends no `anthropic-workspace-id`. Unset, `RENOVATE_HOST_RULES` holds only the `ghcr.io` rule.
 
 Example — App-token caller (infrastructure repo):
 
