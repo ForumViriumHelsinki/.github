@@ -1,0 +1,3 @@
+# Claude Code creates its worktrees here by default
+# (https://code.claude.com/docs/en/worktrees); keep them out of the main checkout.
+.claude/worktrees/
