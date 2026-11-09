@@ -58,7 +58,7 @@ on:
         description: 'Renovate App private key. Required iff app-id is set.'
         required: false
       ANTHROPIC_API_KEY:
-        description: 'Claude API key. When set, Renovate sends it to api.anthropic.com (Authorization: Bearer, plus an anthropic-version header), e.g. for a custom datasource reading GET /v1/models. Unset leaves RENOVATE_HOST_RULES unchanged.'
+        description: 'Claude API key. When set, Renovate sends it to api.anthropic.com (Authorization: Bearer, plus an anthropic-version header), e.g. for a custom datasource reading GET /v1/models. Use a key scoped to one workspace: the rule sends no anthropic-workspace-id header, which the API requires for a key that is not workspace-scoped. Unset leaves RENOVATE_HOST_RULES unchanged.'
         required: false
 
 concurrency:
@@ -110,7 +110,9 @@ jobs:
       # add a second $GITHUB_ENV line. The Renovate step must not set
       # RENOVATE_HOST_RULES in its own env:, which would override this value.
       # The api.anthropic.com rule is added only when ANTHROPIC_API_KEY is set;
-      # without it the value is the ghcr.io rule alone, as before (#201).
+      # without it the value is the ghcr.io rule alone, as before (#201). The
+      # rule sends no anthropic-workspace-id header, so the key must be scoped
+      # to one workspace.
       - name: Build Renovate host rules
         env:
           REGISTRY_TOKEN: ${{ inputs.app-id != '' && steps.app-token.outputs.token || secrets.GITHUB_TOKEN }}
@@ -124,6 +126,12 @@ jobs:
             # `token` makes Renovate send `Authorization: Bearer <key>`, the
             # API's primary auth header, and redacts the key from its logs.
             rules=$(jq -c '. + [{matchHost: "api.anthropic.com", token: $ENV.ANTHROPIC_API_KEY, headers: {"anthropic-version": $ENV.ANTHROPIC_VERSION}}]' <<<"$rules")
+            # Renovate filters the headers of every host rule, global ones
+            # included, against allowedHeaders (default ["X-*"]) and drops
+            # the rest with a "Disallowed hostRules headers" error, which also
+            # makes the run exit 1. Keep the default and admit
+            # anthropic-version.
+            echo 'RENOVATE_ALLOWED_HEADERS=["X-*","anthropic-version"]' >> "$GITHUB_ENV"
           fi
           echo "RENOVATE_HOST_RULES=$rules" >> "$GITHUB_ENV"
 
