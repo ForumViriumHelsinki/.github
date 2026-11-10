@@ -10,6 +10,11 @@ name: Gitleaks
 #   useDefault = true
 #
 # (an allowlist-only file needs it too); the run warns when it does not.
+#
+# On pull requests .gitleaks.toml and .gitleaksignore are read from the base
+# branch, so a change to either takes effect once it is merged: an allowlist
+# entry for a new false positive has to land before the pull request that
+# needs it.
 
 on:
   pull_request:

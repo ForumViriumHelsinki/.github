@@ -53,7 +53,7 @@ Call these from any FVH repo using `uses: ForumViriumHelsinki/.github/.github/wo
 | `reusable-enforce-conventional-commits.yml` | Auto-fix PR titles to conventional-commit format (github-script, no AI); opt-in `squash-message-check` parses the squash commit with release-please's parser ([below](#squash-commit-parse-check)) |
 | `reusable-npm-publish.yml` | Publish an npm package via OIDC trusted publishing (no `NPM_TOKEN`; the caller's job grants `id-token: write`) |
 | `reusable-bun-ci.yml` | Pull-request gate for bun/TypeScript repos: `bun install --frozen-lockfile`, then the repo's own typecheck (opt-in), test and build commands; optional coverage artifact; no secrets |
-| `reusable-gitleaks.yml` | For public repos: gitleaks over the checked-out tree with the default rules plus the FVH GCP-identifier rule from `.gitleaks.toml` (embedded, drift-tested); `enforcement: block\|warn`; release binary, no secrets |
+| `reusable-gitleaks.yml` | For public repos: gitleaks over the checked-out tree with the default rules plus the FVH GCP-identifier rule from `.gitleaks.toml` (embedded, drift-tested); on pull requests the repo's own config and `.gitleaksignore` come from the base commit, so a PR cannot allowlist what it adds; `enforcement: block\|warn`; release binary, no secrets |
 | `reusable-claude.yml` | Claude Code @-mention support in issues and PRs |
 
 ### Automation (Claude-powered)
