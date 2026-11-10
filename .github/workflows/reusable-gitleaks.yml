@@ -27,6 +27,23 @@ name: Gitleaks (Reusable)
 #     ignores an `[extend]` two levels below this workflow's config, so a
 #     caller config that itself extends a file gets a warning: that file's
 #     rules load, but its own `useDefault` or `path` does not.
+#   - On `pull_request` the caller's config and .gitleaksignore are read from
+#     the base commit, not from the pull request (#213): otherwise a pull
+#     request could allowlist the secret it adds, or narrow the rules, and its
+#     own scan would apply the change. The checkout is the merge commit, whose
+#     first parent is the base, so depth 2 is enough and no fetch (or
+#     credential) is needed; a run whose HEAD is not a merge commit fails. A
+#     notice says when the pull request changes either file; the change
+#     applies once merged. Two limits follow from how gitleaks reads files.
+#     It always loads the scanned tree's .gitleaksignore (a
+#     `--gitleaks-ignore-path` elsewhere adds to it, never replaces it), so a
+#     changed one is swapped for the base commit's in the checkout and the
+#     pull request's version of that one file is not scanned until the push
+#     run after the merge. And it resolves a nested `[extend] path` against
+#     the working directory, so a pull request that changes the file a caller
+#     config extends fails the job: that file cannot be read from the base.
+#     Other events read the checkout as before. An inline `gitleaks:allow`
+#     comment is not covered: it sits on the finding's own line in the diff.
 #   - Exit code 2 means findings. gitleaks exits 1 on every error (bad config,
 #     unreadable tree), so findings and a broken scan are told apart instead
 #     of both reading as a leak.
@@ -129,6 +146,9 @@ jobs:
         uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
         with:
           persist-credentials: false
+          # The merge commit and its parents: on pull_request the first
+          # parent is the base commit the caller's config is read from.
+          fetch-depth: 2
 
       - name: Install gitleaks
         # GITLEAKS_VERSION is bumped by Renovate; GITLEAKS_SHA256 by hand.
@@ -146,21 +166,54 @@ jobs:
       - name: Write FVH gitleaks config
         env:
           CONFIG_PATH: ${{ inputs.config-path }}
+          EVENT_NAME: ${{ github.event_name }}
         run: |
           set -euo pipefail
           config="$RUNNER_TEMP/fvh-gitleaks.toml"
-          caller="$GITHUB_WORKSPACE/$CONFIG_PATH"
+          # Where the caller's config is read from: the checkout, or on
+          # pull_request the base commit (#213), checked out beside it.
+          src="$GITHUB_WORKSPACE"
+          base=""
+          if [ "$EVENT_NAME" = "pull_request" ]; then
+            if ! git rev-parse -q --verify 'HEAD^2' >/dev/null; then
+              echo "::error::This is a pull_request run, but HEAD is not a merge commit, so the base commit's gitleaks config cannot be read. Refusing to scan with the pull request's own config."
+              exit 1
+            fi
+            base="$RUNNER_TEMP/gitleaks-base"
+            git worktree add -q --detach "$base" 'HEAD^1'
+            src="$base"
+            # True when the pull request adds, removes or edits the file.
+            changed() {
+              [ -e "$base/$1" ] || [ -e "$GITHUB_WORKSPACE/$1" ] || return 1
+              ! cmp -s "$base/$1" "$GITHUB_WORKSPACE/$1" 2>/dev/null
+            }
+            if changed "$CONFIG_PATH"; then
+              echo "::notice file=$CONFIG_PATH::This pull request changes $CONFIG_PATH. The scan uses the base commit's version; the change applies once merged."
+            fi
+            # gitleaks loads the scanned tree's .gitleaksignore whatever
+            # --gitleaks-ignore-path says, so the base commit's replaces it.
+            if changed .gitleaksignore; then
+              rm -f .gitleaksignore
+              if [ -f "$base/.gitleaksignore" ]; then
+                cp "$base/.gitleaksignore" .gitleaksignore
+              fi
+              echo "::notice file=.gitleaksignore::This pull request changes .gitleaksignore. The scan uses the base commit's version, and the pull request's version is not scanned; the change applies once merged."
+            fi
+          fi
+          caller="$src/$CONFIG_PATH"
           if [ -f "$caller" ]; then
             case "$caller" in
               *"'"*|*$'\n'*) echo "::error::the workspace path cannot be written into a TOML literal string."; exit 1 ;;
             esac
             extend="path = '$caller'"
-            echo "Extending the caller's gitleaks config $CONFIG_PATH."
+            echo "Extending the caller's gitleaks config $CONFIG_PATH${base:+ from the base commit}."
             # Reads only [extend]: a [[rules]] entry has a path field too. An
             # unparseable file prints nothing here and is left to gitleaks,
-            # which fails the scan.
+            # which fails the scan. With a base commit (argv[2]), also
+            # compares the file a nested [extend] path names, which gitleaks
+            # resolves against the working directory, with the base's copy.
             flags=$(python3 -I -c '
-          import sys, tomllib
+          import filecmp, os, sys, tomllib
           try:
               e = tomllib.load(open(sys.argv[1], "rb")).get("extend")
           except Exception:
@@ -168,15 +221,29 @@ jobs:
           e = e if isinstance(e, dict) else {}
           if e.get("path"):
               print("nested")
+              if sys.argv[2]:
+                  try:
+                      same = filecmp.cmp(os.path.join(sys.argv[2], e["path"]), os.path.join(sys.argv[3], e["path"]), shallow=False)
+                  except Exception:
+                      same = False
+                  if not same:
+                      print("nestedchanged")
           if e.get("useDefault") is not True:
               print("nodefault")
-          ' "$caller" 2>/dev/null) || flags=""
+          ' "$caller" "$base" "$GITHUB_WORKSPACE" 2>/dev/null) || flags=""
+            if grep -qx nestedchanged <<<"$flags"; then
+              echo "::error file=$CONFIG_PATH::$CONFIG_PATH extends a file that this pull request changes. gitleaks reads that file from the pull request's checkout, so this scan cannot vouch for it; review the change and merge over this check, or move the rules into $CONFIG_PATH itself."
+              exit 1
+            fi
             if grep -qx nodefault <<<"$flags"; then
               echo "::warning file=$CONFIG_PATH::$CONFIG_PATH does not set [extend] useDefault = true, so gitleaks' default secret rules are not running; only its own rules and the FVH rule are. Add useDefault = true under [extend] to keep them."
             fi
             if grep -qx nested <<<"$flags"; then
               echo "::warning file=$CONFIG_PATH::$CONFIG_PATH extends another file. gitleaks loads that file's rules but ignores its own [extend] (useDefault or path), two levels below this workflow's config."
             fi
+          elif [ -n "$base" ] && [ -f "$GITHUB_WORKSPACE/$CONFIG_PATH" ]; then
+            extend="useDefault = true"
+            echo "No $CONFIG_PATH at the base commit; running the default rules and the FVH rule."
           elif [ "$CONFIG_PATH" != ".gitleaks.toml" ]; then
             echo "::error::config-path '$CONFIG_PATH' does not exist in the checkout."
             exit 1
