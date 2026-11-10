@@ -9,7 +9,9 @@ globs: **/*
 
 The FVH org delta:
 
-**Project is required.** Every issue gets a project (`-p <title>`) and, where the table defines one, its `project:*` label — the label drives automated board routing. A PR takes the same project and label as its linked issue, and always links one (`Closes #N`). Backfill a missing project when touching an issue or PR. If the context does not clearly map to one row, ask before proceeding.
+**Project is required.** Every issue gets a project through its `project:*` label: GitHub workflows act on the label and add the item to that project's board, so setting the label is the required step. A PR takes the same label as its linked issue, and always links one (`Closes #N`). Backfill a missing label when touching an issue or PR. If the context does not clearly map to one row, ask before proceeding.
+
+**Cloud sessions set the label only.** `gh project` (`-p <title>`, `item-add`) needs GitHub GraphQL or the org-scoped Projects REST API, and the Claude Code cloud-session proxy (`CLAUDE_CODE_REMOTE=true`) refuses both with HTTP 403; repo-scoped label writes work. In a cloud session, set the label and do not attempt `gh project`. For a row with no label (Template: Epic), hand the user the `gh project item-add <n> --owner ForumViriumHelsinki --url <url>` command to run locally. Local sessions may also pass `-p <title>`; the label is still required.
 
 | Project | Label | Context signals |
 |---|---|---|
@@ -28,7 +30,7 @@ The FVH org delta:
 | Internal Tools | `project:internal-tools` | FVH-internal staff tools: `silverbucket-helper`, apps in the `internal-tools` ArgoCD namespace |
 | Agent Workshop | `project:agent-workshop` | `agent-workshop` repo: AI assistants (Gemini gems/skills, agents) for FVH teams — test cases, instructions, evaluation methodology |
 
-**Adding a project.** Org projects are not Terraform-managed: create and link one with `gh project create --owner ForumViriumHelsinki` and `gh project link <n> --repo <repo>`. Its `project:*` label is Terraform-managed: add it to `infrastructure/github/labels.tf` and the routing table in `infrastructure/github/CLAUDE.md`, then add a row to the table above and run `rulesync generate`. The label reaches repos only after the `infrastructure-github` apply, so relabel existing items after that. To move items between projects, `gh project item-add` on the new one, then `gh project item-delete` on the old one.
+**Adding a project.** Org projects are not Terraform-managed: create and link one with `gh project create --owner ForumViriumHelsinki` and `gh project link <n> --repo <repo>`. Its `project:*` label is Terraform-managed: add it to `infrastructure/github/labels.tf` and the routing table in `infrastructure/github/CLAUDE.md`, then add a row to the table above and run `rulesync generate`. The label reaches repos only after the `infrastructure-github` apply, so relabel existing items after that. To move items between projects, change the label, then (locally, since this needs `gh project`) `gh project item-delete` on the old board if the item is still there.
 
 **The docs label is `documentation`**, not `docs`.
 
