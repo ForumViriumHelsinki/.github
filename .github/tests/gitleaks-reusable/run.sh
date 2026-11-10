@@ -27,6 +27,12 @@
 #      each step's continue-on-error to derive the job's conclusion. FVH-shaped
 #      fixture IDs are assembled at run time, so this file passes the
 #      tree-wide scan.
+#      On `pull_request` (#213) the caller's config and .gitleaksignore come
+#      from the base commit, so the scenarios in 4o build a merge commit the
+#      way refs/pull/N/merge is laid out (first parent the base) and check
+#      that a config, an allowlist or an ignore entry the pull request adds
+#      does not reach its own scan, each against a `push` control over the
+#      same tree where it does.
 #   5. The starter template calls the workflow at @main on pull_request and
 #      push to the default branch, with `contents: read`.
 #
@@ -125,6 +131,11 @@ grep -Eq "uses: actions/checkout@[0-9a-f]{40} # v[0-9]" "$WF" || fail "checkout 
 pass
 expect_eq "checkout persist-credentials" false \
   "$(yq '[.jobs[].steps[] | select(.uses // "" | test("^actions/checkout@"))] | .[0].with.persist-credentials' "$WF")"
+# Depth 2 puts the merge commit's first parent (the base commit) in the clone;
+# the Write step reads the caller's config from it on pull_request (#213).
+expect_eq "checkout fetch-depth" 2 \
+  "$(yq '[.jobs[].steps[] | select(.uses // "" | test("^actions/checkout@"))] | .[0].with.fetch-depth' "$WF")"
+expect_eq "Write config reads the event name through env:" '${{ github.event_name }}' "$(step_field "$WRITE_STEP" '.env.EVENT_NAME')"
 COE_WARN="\${{ inputs.enforcement == 'warn' }}"
 expect_eq "last step" Enforce "$(yq '.jobs[].steps[-1].name' "$WF")"
 expect_eq "Enforce continue-on-error" "$COE_WARN" "$(step_field Enforce '.continue-on-error')"
@@ -152,8 +163,10 @@ expect_eq "workflow output findings" '${{ jobs.gitleaks.outputs.findings }}' "$(
 # 4. Behaviour of the shipped steps
 # ---------------------------------------------------------------------------
 declare -A INPUT
+EVENT=push
 reset_inputs() {
   INPUT=()
+  EVENT=push
   local k
   for k in $(yq '.on.workflow_call.inputs | keys | .[]' "$WF"); do
     INPUT[$k]=$(K="$k" yq '.on.workflow_call.inputs[strenv(K)].default' "$WF")
@@ -161,7 +174,8 @@ reset_inputs() {
 }
 
 # Runs one shipped step in $WS. Env values that are `${{ inputs.X }}` take
-# INPUT[X], `${{ steps.<id>.outputs.<key> }}` the last `<key>=` line in the
+# INPUT[X], `${{ github.event_name }}` takes EVENT (reset_inputs sets push),
+# `${{ steps.<id>.outputs.<key> }}` the last `<key>=` line in the
 # scenario's GITHUB_OUTPUT (only Scan writes one); any other expression is a
 # harness gap and fails.
 run_step() { # step name ; uses WS, RT
@@ -172,6 +186,8 @@ run_step() { # step name ; uses WS, RT
     [ -n "$key" ] || continue
     if [[ "$val" =~ ^\$\{\{\ *inputs\.([A-Za-z0-9_-]+)\ *\}\}$ ]]; then
       val=${INPUT[${BASH_REMATCH[1]}]-}
+    elif [[ "$val" =~ ^\$\{\{\ *github\.event_name\ *\}\}$ ]]; then
+      val=$EVENT
     elif [[ "$val" =~ ^\$\{\{\ *steps\.[A-Za-z0-9_-]+\.outputs\.([A-Za-z0-9_-]+)\ *\}\}$ ]]; then
       val=$(sed -n "s/^${BASH_REMATCH[1]}=//p" "$RT/output" | tail -n 1)
     elif [[ "$val" == *'${{'* ]]; then
@@ -476,6 +492,198 @@ for name in "quote'ws" $'nl\nws'; do
   [ ! -e "$RT/fvh-gitleaks.toml" ] || fail "workspace [$name]: a config was written anyway"
   pass
 done
+
+# 4o. pull_request (#213): the caller's config and .gitleaksignore are read
+# from the base commit, so a pull request cannot loosen its own scan. Each
+# fixture is a merge commit laid out like refs/pull/N/merge: first parent the
+# base, second the pull request's head.
+ws_git() {
+  git -C "$WS" -c user.name=fixture -c user.email=fixture@example.invalid \
+    -c commit.gpgsign=false -c core.hooksPath=/dev/null "$@"
+}
+commit_base() { # commits the tree as the base, then opens the PR branch
+  ws_git add -A
+  ws_git commit -q --allow-empty -m base
+  ws_git switch -q -c pr
+}
+commit_merge() { # commits the tree as the PR head and merges it into the base
+  ws_git add -A
+  ws_git commit -q --allow-empty -m head
+  ws_git switch -q -
+  ws_git merge -q --no-ff -m merge pr
+}
+allowlist_config() { # file ; default rules, with docs/creds.ini allowlisted
+  printf '[extend]\nuseDefault = true\n\n[[allowlists]]\npaths = [%s]\n' "'''docs/creds\\.ini\$'''" >"$1"
+}
+notice_config() { # config path
+  printf '::notice file=%s::This pull request changes %s. The scan uses the base commit'"'"'s version; the change applies once merged.' "$1" "$1"
+}
+NOTICE_IGNORE="::notice file=.gitleaksignore::This pull request changes .gitleaksignore. The scan uses the base commit's version, and the pull request's version is not scanned; the change applies once merged."
+
+# The defect: a pull request adds a secret and a config that allowlists it.
+# Under push (the control) the allowlist applies; under pull_request it does not.
+for event in push pull_request; do
+  reset_inputs; EVENT=$event; new_ws "pr-allowlist-$event"
+  echo "# fixture" >"$WS/README.md"
+  commit_base
+  write_fixtures
+  allowlist_config "$WS/.gitleaks.toml"
+  commit_merge
+  run_job
+  if [ "$event" = push ]; then
+    expect_eq "pr-allowlist push control: the tree's allowlist applies" 0 "$(rule_count aws-access-token)"
+    expect_absent "pr-allowlist push control: no base-commit notice" "::notice file=" "$OUT"
+  else
+    expect_eq "pr-allowlist: the PR's own allowlist does not apply" 1 "$(rule_count aws-access-token)"
+    expect_eq "pr-allowlist: FVH rule fires" 2 "$(rule_count fvh-gcp-project-id)"
+    expect_eq "pr-allowlist: job conclusion" failure "$JOB"
+    expect_eq "pr-allowlist: only Enforce failed" Enforce "$FAILED"
+    expect_contains "pr-allowlist: notice names the config" "$(notice_config .gitleaks.toml)" "$OUT"
+    expect_contains "pr-allowlist: no config at the base, so the default rules run" "useDefault = true" "$(cat "$RT/fvh-gitleaks.toml")"
+    expect_absent "pr-allowlist: the PR's config is not extended" "path = " "$(cat "$RT/fvh-gitleaks.toml")"
+  fi
+done
+
+# A config the base commit already holds applies, unchanged, with no notice.
+reset_inputs; EVENT=pull_request; new_ws pr-base-config
+caller_rule "$WS/.gitleaks.toml" yes
+commit_base
+write_fixtures
+echo "token: caller-secret-""123456" >"$WS/docs/app.txt"
+commit_merge
+run_job
+expect_contains "pr-base-config: extends the base commit's copy" "path = '$RT/gitleaks-base/.gitleaks.toml'" "$(cat "$RT/fvh-gitleaks.toml")"
+expect_eq "pr-base-config: the base config's rule fires" 1 "$(rule_count caller-token)"
+expect_eq "pr-base-config: default rules through the base config's useDefault" 1 "$(rule_count aws-access-token)"
+expect_absent "pr-base-config: no notice for an unchanged config" "::notice file=" "$OUT"
+
+# A pull request that narrows the config (drops a rule and the default rules)
+# is still scanned with the base commit's rules.
+reset_inputs; EVENT=pull_request; new_ws pr-narrow
+caller_rule "$WS/.gitleaks.toml" yes
+commit_base
+write_fixtures
+echo "token: caller-secret-""123456" >"$WS/docs/app.txt"
+printf 'title = "narrowed"\n' >"$WS/.gitleaks.toml"
+commit_merge
+run_job
+expect_eq "pr-narrow: the dropped rule still fires" 1 "$(rule_count caller-token)"
+expect_eq "pr-narrow: the default rules still run" 1 "$(rule_count aws-access-token)"
+expect_contains "pr-narrow: notice names the config" "$(notice_config .gitleaks.toml)" "$OUT"
+expect_absent "pr-narrow: the useDefault warning judges the base config, not the PR's" "useDefault = true, so" "$OUT"
+
+# A pull request that deletes the config is scanned with the base commit's.
+reset_inputs; EVENT=pull_request; new_ws pr-delete-config
+caller_rule "$WS/.gitleaks.toml" yes
+commit_base
+echo "token: caller-secret-""123456" >"$WS/app.txt"
+rm "$WS/.gitleaks.toml"
+commit_merge
+run_job
+expect_eq "pr-delete-config: the base config's rule still fires" 1 "$(rule_count caller-token)"
+expect_contains "pr-delete-config: notice names the config" "$(notice_config .gitleaks.toml)" "$OUT"
+
+# .gitleaksignore: an entry the pull request adds does not silence its finding
+# (control: under push it does), and an entry the base holds still applies.
+for event in push pull_request; do
+  reset_inputs; EVENT=$event; new_ws "pr-ignore-$event"
+  mkdir -p "$WS/old"
+  printf 'id: %s-legacy\n' "$fvh_prefix" >"$WS/old/legacy.md"
+  echo "old/legacy.md:fvh-gcp-project-id:1" >"$WS/.gitleaksignore"
+  commit_base
+  mkdir -p "$WS/docs"
+  printf 'aws_access_key_id = %s\n' "$aws_key" >"$WS/docs/creds.ini"
+  echo "docs/creds.ini:aws-access-token:1" >>"$WS/.gitleaksignore"
+  commit_merge
+  run_job
+  expect_eq "pr-ignore $event: the base commit's entry applies" 0 "$(rule_count fvh-gcp-project-id)"
+  if [ "$event" = push ]; then
+    expect_eq "pr-ignore push control: the tree's entry applies" 0 "$(rule_count aws-access-token)"
+    expect_absent "pr-ignore push control: no base-commit notice" "::notice file=" "$OUT"
+  else
+    expect_eq "pr-ignore: the PR's own entry does not apply" 1 "$(rule_count aws-access-token)"
+    expect_eq "pr-ignore: job conclusion" failure "$JOB"
+    expect_contains "pr-ignore: notice names .gitleaksignore" "$NOTICE_IGNORE" "$OUT"
+  fi
+done
+# A .gitleaksignore that only the pull request has is taken out of the scan.
+reset_inputs; EVENT=pull_request; new_ws pr-ignore-new
+echo "# fixture" >"$WS/README.md"
+commit_base
+mkdir -p "$WS/docs"
+printf 'aws_access_key_id = %s\n' "$aws_key" >"$WS/docs/creds.ini"
+echo "docs/creds.ini:aws-access-token:1" >"$WS/.gitleaksignore"
+commit_merge
+run_job
+expect_eq "pr-ignore-new: the PR's new ignore file does not apply" 1 "$(rule_count aws-access-token)"
+expect_contains "pr-ignore-new: notice names .gitleaksignore" "$NOTICE_IGNORE" "$OUT"
+# An unchanged .gitleaksignore gets no notice.
+reset_inputs; EVENT=pull_request; new_ws pr-ignore-same
+echo "old/legacy.md:fvh-gcp-project-id:1" >"$WS/.gitleaksignore"
+commit_base
+echo "# change" >"$WS/README.md"
+commit_merge
+run_job
+expect_eq "pr-ignore-same: job conclusion" success "$JOB"
+expect_absent "pr-ignore-same: no notice" "::notice file=" "$OUT"
+
+# A non-default config-path that the pull request introduces is not an error:
+# the base has none, so the default rules run and the notice says so. One that
+# neither commit holds still is.
+reset_inputs; EVENT=pull_request; INPUT[config-path]=config/gitleaks.toml; new_ws pr-custom-new
+echo "# fixture" >"$WS/README.md"
+commit_base
+write_fixtures
+mkdir -p "$WS/config"; allowlist_config "$WS/config/gitleaks.toml"
+commit_merge
+run_job
+expect_eq "pr-custom-new: the PR's allowlist does not apply" 1 "$(rule_count aws-access-token)"
+expect_contains "pr-custom-new: notice names the config" "$(notice_config config/gitleaks.toml)" "$OUT"
+expect_eq "pr-custom-new: only Enforce failed" Enforce "$FAILED"
+reset_inputs; EVENT=pull_request; INPUT[config-path]=config/gitleaks.toml; new_ws pr-custom-missing
+echo "# fixture" >"$WS/README.md"
+commit_base
+write_fixtures
+commit_merge
+run_job
+expect_contains "pr-custom-missing: error names the path" "::error::config-path 'config/gitleaks.toml'" "$OUT"
+expect_eq "pr-custom-missing: Write config failed" "$WRITE_STEP" "$FAILED"
+
+# gitleaks resolves a nested [extend] path against the working directory, so
+# the file it names would come from the pull request. Unchanged, the scan
+# runs (with the nested-extend warning); changed, the run fails before any
+# scan.
+for change in same changed; do
+  reset_inputs; EVENT=pull_request; new_ws "pr-nested-$change"
+  printf '[extend]\npath = "base.toml"\n' >"$WS/.gitleaks.toml"
+  caller_rule "$WS/base.toml" yes
+  commit_base
+  echo "token: caller-secret-""123456" >"$WS/app.txt"
+  if [ "$change" = changed ]; then printf 'title = "emptied"\n' >"$WS/base.toml"; fi
+  commit_merge
+  run_job
+  if [ "$change" = same ]; then
+    expect_eq "pr-nested-same: the nested file's rule fires" 1 "$(rule_count caller-token)"
+    expect_contains "pr-nested-same: nested-extend warning" "::warning file=.gitleaks.toml::.gitleaks.toml extends another file." "$OUT"
+  else
+    expect_contains "pr-nested-changed: error" "::error file=.gitleaks.toml::.gitleaks.toml extends a file that this pull request changes." "$OUT"
+    expect_eq "pr-nested-changed: Write config failed" "$WRITE_STEP" "$FAILED"
+    expect_eq "pr-nested-changed: job conclusion" failure "$JOB"
+    [ ! -e "$RT/gitleaks.json" ] || fail "pr-nested-changed: the scan ran anyway"
+    pass
+  fi
+done
+
+# A pull_request run whose HEAD is not a merge commit has no base commit to
+# read from: it fails rather than fall back to the checkout's config.
+reset_inputs; EVENT=pull_request; new_ws pr-no-merge; write_fixtures
+allowlist_config "$WS/.gitleaks.toml"
+ws_git add -A; ws_git commit -q -m only
+run_job
+expect_contains "pr-no-merge: error" "::error::This is a pull_request run, but HEAD is not a merge commit" "$OUT"
+expect_eq "pr-no-merge: Write config failed" "$WRITE_STEP" "$FAILED"
+[ ! -e "$RT/fvh-gitleaks.toml" ] || fail "pr-no-merge: a config was written anyway"
+pass
 
 # ---------------------------------------------------------------------------
 # 5. Starter template
