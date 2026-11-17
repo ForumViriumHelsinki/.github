@@ -49,6 +49,7 @@ Call these from any FVH repo using `uses: ForumViriumHelsinki/.github/.github/wo
 | `reusable-auto-merge-image-updater.yml` | Auto-merge ArgoCD Image Updater PRs (single-job, push-triggered) |
 | `reusable-fix-release-conflicts.yml` | Auto-resolve release-please merge conflicts |
 | `reusable-clear-autorelease-labels.yml` | Manual escape hatch: strip a stale `autorelease: pending` label from closed PRs to unclog release-please |
+| `reusable-issue-labels.yml` | Add type and routing labels to issues and PRs from the repo's `.github/issue-labels.json`, clear `blocked` when blockers close, and audit label gaps weekly. No model; creates no labels, since they come from `infrastructure/github/labels.tf` ([Issue Labels](docs/issue-labels.md)) |
 | `reusable-renovate.yml` | Dependency updates via Renovate — called centrally from the infrastructure repo only; application repos must not call it. The optional `ANTHROPIC_API_KEY` secret adds a host rule for `api.anthropic.com` (for a custom datasource tracking Claude model IDs) |
 | `reusable-enforce-conventional-commits.yml` | Auto-fix PR titles to conventional-commit format (github-script, no AI); opt-in `squash-message-check` parses the squash commit with release-please's parser ([below](#squash-commit-parse-check)) |
 | `reusable-npm-publish.yml` | Publish an npm package via OIDC trusted publishing (no `NPM_TOKEN`; the caller's job grants `id-token: write`) |
