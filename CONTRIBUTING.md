@@ -55,7 +55,7 @@ Use the issue templates provided in each repository. Include:
 - Expected vs actual behavior
 - Relevant environment details
 
-What the labels on issues and pull requests mean, and who applies them, is described in [Issue Labels](docs/issue-labels.md).
+What the labels on issues and pull requests mean, and who applies them, is described in [Issue Labels](https://github.com/ForumViriumHelsinki/.github/blob/main/docs/issue-labels.md).
 
 ## Questions
 

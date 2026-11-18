@@ -52,7 +52,7 @@ Repositories that call [`reusable-issue-labels.yml`](../.github/workflows/reusab
 - **New, updated or edited PR**: the type label comes from the title, and a routing label from each changed file. Fork PRs and Dependabot PRs are skipped, and a caller can switch PR labelling off.
 - Labels are only ever added. A group (type, or one routing prefix) that already has a label is left alone.
 - **Issue closed**: `blocked` is removed from issues whose linked blockers are all closed.
-- **Scheduled audit**: lists open issues with no type label, no routing label, `blocked` with no link, an open blocker link without `blocked`, or a `needs:` label older than 30 days. The results go to the job summary and one rolling issue. A manual `backfill` run labels open issues that lack a type or routing label.
+- **Scheduled audit**: lists open issues with no type label, no routing label, `blocked` with no link, `blocked` whose linked blockers are all closed, an open blocker link without `blocked`, or a `needs:` label older than 30 days. The results go to the job summary and one rolling issue. A manual `backfill` run labels open issues that lack a type or routing label.
 
 The workflow's file header lists which event runs which job. The workflow never creates labels, so a label must exist before it can be applied.
 
