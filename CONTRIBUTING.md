@@ -55,6 +55,8 @@ Use the issue templates provided in each repository. Include:
 - Expected vs actual behavior
 - Relevant environment details
 
+What the labels on issues and pull requests mean, and who applies them, is described in [Issue Labels](https://github.com/ForumViriumHelsinki/.github/blob/main/docs/issue-labels.md).
+
 ## Questions
 
 For questions about a specific project, open an issue in that repository. For general questions about Forum Virium Helsinki development, contact info@forumvirium.fi.
