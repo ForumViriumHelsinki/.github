@@ -1,12 +1,12 @@
 ---
 root: false
 targets: ["claudecode", "copilot", "antigravity-ide", "cursor"]
-description: "FVH org delta for GitHub issue/PR metadata — project routing, project:* labels, Terraform-managed labels"
+description: "FVH org delta for GitHub issue/PR metadata — type, routing and waiting labels, project routing, Terraform-managed labels"
 globs: ["**/*"]
 ---
 # GitHub Metadata Hygiene — FVH Org Delta
 
-**Baseline.** Assign `laurigates` unless told otherwise. Set a type label (`bug`, `enhancement`, `chore`, `documentation`, `security`), checking `gh label list -R <owner>/<repo>` first. Set the milestone where one fits, and the issue type where the org defines them (`list_issue_types`, then MCP `issue_write` with `type`). Request a reviewer only when they are not the PR author: GitHub rejects self-review with HTTP 422, so run the reviewer update as its own `gh` call. When touching an issue or PR with gaps, backfill them and tell the user what was added.
+**Baseline.** Assign `laurigates` unless told otherwise. Set one type label (`bug`, `enhancement`, `chore`, `docs`, `security`, `refactor`), checking `gh label list -R <owner>/<repo>` first. Set the milestone where one fits, and the issue type where the org defines them (`list_issue_types`, then MCP `issue_write` with `type`). Request a reviewer only when they are not the PR author: GitHub rejects self-review with HTTP 422, so run the reviewer update as its own `gh` call. When touching an issue or PR with gaps, backfill them and tell the user what was added.
 
 The FVH org delta:
 
@@ -33,7 +33,9 @@ The FVH org delta:
 
 **Adding a project.** Org projects are not Terraform-managed: create and link one with `gh project create --owner ForumViriumHelsinki` and `gh project link <n> --repo <repo>`. Its `project:*` label is Terraform-managed: add it to `infrastructure/github/labels.tf` and the routing table in `infrastructure/github/CLAUDE.md`, then add a row to the table above and run `rulesync generate`. The label reaches repos only after the `infrastructure-github` apply, so relabel existing items after that. To move items between projects, change the label, then (locally, since this needs `gh project`) `gh project item-delete` on the old board if the item is still there.
 
-**The docs label is `documentation`**, not `docs`.
+**The type labels are `docs` and `refactor`**, not `documentation` and `refactoring`. The old names are being removed from `labels.tf` (infrastructure#2807). Never write them from a workflow, template or app: the Issues API creates a missing label, and the next apply deletes it again.
+
+**Routing and waiting labels.** Give each issue at least one routing label besides its type: `core:ci|quality|agent|build|components|docs` for repo-wide machinery, or the repo's own `area:<name>` labels where it has them (`gh label list --limit 500 --search area:`). Add `needs:decision`, `needs:human` or `needs:hardware` when the issue waits on a person, and assign that person. Add `blocked` together with a `blocked_by` dependency link when it waits on another issue. Unattended agents skip any issue that carries a waiting label, and only a person removes a `needs:` label. In repos that call `reusable-issue-labels.yml`, type and routing labels are added automatically from the title; set them by hand anyway when filing. The full description is in `docs/issue-labels.md` in ForumViriumHelsinki/.github.
 
 **No `triage` label.** `infrastructure/github/labels.tf` defines none. For an issue whose root cause is unconfirmed, use `bug` with a `triage(scope): ...` title prefix; do not request a `triage` label without first confirming a workflow needs one — the prefix has sufficed in practice.
 
