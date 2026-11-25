@@ -8,6 +8,8 @@ globs: ["**/*"]
 
 **Baseline.** Assign `laurigates` unless told otherwise. Set one type label (`bug`, `enhancement`, `chore`, `docs`, `security`, `refactor`), checking `gh label list -R <owner>/<repo>` first. Set the milestone where one fits, and the issue type where the org defines them (`list_issue_types`, then MCP `issue_write` with `type`). Request a reviewer only when they are not the PR author: GitHub rejects self-review with HTTP 422, so run the reviewer update as its own `gh` call. When touching an issue or PR with gaps, backfill them and tell the user what was added.
 
+**Issue fields.** The org defines four issue fields, separate from its issue types (Task, Bug, Feature): Effort (single select: High, Medium, Low), Priority (single select: Urgent, High, Medium, Low), Start date and Target date (date). This list was read from the org API on 2026-11-25; re-read it with `gh api orgs/ForumViriumHelsinki/issue-fields` before relying on it. Set Priority and Effort where the issue has them, and the dates when a plan exists. The write path (`issue-field-values` via `gh api`, token permissions, and whether MCP `issue_write` can set fields) is unverified; see `git-plugin:git-issue-manage`.
+
 The FVH org delta:
 
 **Project is required.** Every issue gets a project through its `project:*` label: GitHub workflows act on the label and add the item to that project's board, so setting the label is the required step. A PR takes the same label as its linked issue, and always links one (`Closes #N`). Backfill a missing label when touching an issue or PR. If the context does not clearly map to one row, ask before proceeding.
